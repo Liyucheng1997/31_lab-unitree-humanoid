@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unitree-Style Humanoid · Three.js</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <!-- 用 importmap 直接从 CDN 加载 three，无需打包工具 -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- HUD 控制面板 -->
+  <div id="hud">
+    <div class="hud-title">HUMANOID&nbsp;CONTROL</div>
+
+    <div class="hud-section">
+      <div class="hud-label">动作 / Behavior</div>
+      <div id="behavior-buttons" class="btn-row"></div>
+    </div>
+
+    <div class="hud-section">
+      <div class="hud-label">运动 / Locomotion</div>
+      <div class="slider-row">
+        <span>步速</span>
+        <input id="speed" type="range" min="0.4" max="2.2" step="0.05" value="1.0" />
+        <em id="speed-val">1.00</em>
+      </div>
+      <div class="slider-row">
+        <span>步幅</span>
+        <input id="stride" type="range" min="0.10" max="0.42" step="0.01" value="0.26" />
+        <em id="stride-val">0.26</em>
+      </div>
+      <div class="slider-row">
+        <span>转向</span>
+        <input id="turn" type="range" min="-1" max="1" step="0.05" value="0" />
+        <em id="turn-val">0.00</em>
+      </div>
+    </div>
+
+    <div class="hud-section">
+      <div class="hud-label">显示 / View</div>
+      <div class="btn-row">
+        <button id="toggle-skeleton" class="mini">骨架</button>
+        <button id="toggle-follow" class="mini">跟随</button>
+      </div>
+    </div>
+
+    <div class="hud-hint">
+      WASD 移动 · 空格跳跃 · 鼠标拖拽旋转视角
+    </div>
+  </div>
+
+  <div id="state-readout"></div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

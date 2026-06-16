@@ -1,0 +1,15 @@
+# 依赖
+node_modules/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+npm-debug.log*
+
+# 本地预览配置（含本机端口/路径，不入库）
+.claude/launch.json
