@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { dampEuler, damp, clamp } from './MathUtils.js';
-import { DIM, baseRootHeight } from '../robot/skeleton.js';
+import { dampEuler, damp, clamp } from './MathUtils.js?v=20260619-knee-fix';
+import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260619-knee-fix';
 import {
-  IdleBehavior, WalkBehavior, DanceBehavior, WaveBehavior, JumpBehavior,
-} from './behaviors.js';
+  IdleBehavior, WalkBehavior, DanceBehavior, WaveBehavior, JumpBehavior, BaduanjinBehavior,
+} from './behaviors.js?v=20260619-knee-fix';
 
 // 关节的"静止"姿态（无目标时回归）
 const REST = {
@@ -48,6 +48,7 @@ export class MotionController {
       walk: new WalkBehavior(),
       dance: new DanceBehavior(),
       wave: new WaveBehavior(),
+      baduanjin: new BaduanjinBehavior(),
     };
     this.current = this.behaviors.idle;
 
@@ -62,7 +63,10 @@ export class MotionController {
       this.current = new JumpBehavior(() => { this.current = this.behaviors.idle; });
       return;
     }
-    if (this.behaviors[name]) this.current = this.behaviors[name];
+    if (this.behaviors[name]) {
+      this.current = this.behaviors[name];
+      if (typeof this.current.reset === 'function') this.current.reset();
+    }
   }
 
   get behaviorName() { return this.current.name; }
@@ -100,11 +104,11 @@ export class MotionController {
     else this.yaw += this.moveInput.turn * 1.2 * dt;
     this.rig.root.rotation.y = this.yaw;
 
-    // ---- 根：前进位移（沿朝向，forward = -Z 的本地方向）----
+    // ---- 根：前进位移（沿机器人视觉正面 +Z 的本地方向）----
     const speed = pose.forwardSpeed || 0;
     if (speed !== 0) {
-      const fx = -Math.sin(this.yaw);
-      const fz = -Math.cos(this.yaw);
+      const fx = Math.sin(this.yaw) * FORWARD_Z;
+      const fz = Math.cos(this.yaw) * FORWARD_Z;
       this.rig.root.position.x += fx * speed * dt;
       this.rig.root.position.z += fz * speed * dt;
     }

@@ -17,7 +17,8 @@ npx http-server -p 5179 -c-1 .
 
 ## 操作
 
-- 面板按钮：**站立 / 走路 / 跳舞 / 挥手 / 跳跃**
+- 面板按钮：**站立 / 走路 / 跳舞 / 八段锦 / 挥手 / 跳跃**
+- **八段锦**：按传统八式完成约 64 秒循环；自动播放 72 BPM 五声音阶古琴/洞箫风格伴奏，可独立静音
 - 滑块：步速、步幅、转向
 - 键盘：`W` 前进（自动切走路）、`A/D` 转向、`空格` 跳跃
 - 鼠标拖拽旋转视角；「跟随」让相机跟住机器人；「骨架」显示关节点
@@ -35,8 +36,10 @@ src/
     RobotBuilder.js     建模：层级关节 + 宇树风格外壳，返回命名关节字典
   control/
     MathUtils.js        插值、阻尼平滑、两骨解析 IK（核心数学）
-    behaviors.js        行为：Idle / Walk / Dance / Wave / Jump
+    behaviors.js        行为：Idle / Walk / Dance / Baduanjin / Wave / Jump
     MotionController.js  关节平滑 + 行为状态机 + 根节点运动
+  audio/
+    ClassicalMusic.js   Web Audio 五声音阶古典风格实时伴奏
   ui/
     HUD.js              面板与键盘绑定
 ```

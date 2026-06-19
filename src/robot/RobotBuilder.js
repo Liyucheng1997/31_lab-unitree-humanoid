@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DIM } from './skeleton.js';
+import { DIM, FORWARD_Z } from './skeleton.js?v=20260619-knee-fix';
 
 // ---------- 材质（宇树风格：白壳 / 黑关节 / 蓝光） ----------
 const matShell = new THREE.MeshStandardMaterial({
@@ -75,9 +75,9 @@ export function buildRobot() {
   add(waist, torso, 0, DIM.torsoH * 0.5, 0);
   // 胸前装甲 + 蓝光条
   add(waist, shell(DIM.torsoW * 0.6, DIM.torsoH * 0.5, 0.02, matDark),
-      0, DIM.torsoH * 0.55, DIM.torsoD * 0.5);
+      0, DIM.torsoH * 0.55, DIM.torsoD * 0.5 * FORWARD_Z);
   add(waist, shell(0.05, 0.05, 0.02, matAccent),
-      0, DIM.torsoH * 0.62, DIM.torsoD * 0.51);
+      0, DIM.torsoH * 0.62, DIM.torsoD * 0.51 * FORWARD_Z);
   // 肩部横梁
   add(waist, shell(DIM.shoulderWidth * 2, 0.09, 0.13, matDark),
       0, DIM.torsoH * 0.92, 0);
@@ -92,12 +92,12 @@ export function buildRobot() {
   add(neck, head, 0, DIM.neckH * 0.5 + DIM.headH * 0.5, 0);
   // 面罩（黑色弧形）
   add(neck, shell(DIM.headW * 0.82, DIM.headH * 0.42, 0.03, matVisor),
-      0, DIM.neckH * 0.5 + DIM.headH * 0.52, DIM.headW * 0.47);
+      0, DIM.neckH * 0.5 + DIM.headH * 0.52, DIM.headW * 0.47 * FORWARD_Z);
   // 两侧传感器蓝点
   add(neck, shell(0.03, 0.03, 0.02, matAccent),
-      DIM.headW * 0.3, DIM.neckH * 0.5 + DIM.headH * 0.52, DIM.headW * 0.46);
+      DIM.headW * 0.3, DIM.neckH * 0.5 + DIM.headH * 0.52, DIM.headW * 0.46 * FORWARD_Z);
   add(neck, shell(0.03, 0.03, 0.02, matAccent),
-      -DIM.headW * 0.3, DIM.neckH * 0.5 + DIM.headH * 0.52, DIM.headW * 0.46);
+      -DIM.headW * 0.3, DIM.neckH * 0.5 + DIM.headH * 0.52, DIM.headW * 0.46 * FORWARD_Z);
 
   // ---- 手臂 ----
   for (const side of ['L', 'R']) {
@@ -159,9 +159,9 @@ export function buildRobot() {
     knee.add(ankle);
     joints['ankle' + side] = ankle;
     add(ankle, joint(0.04), 0, 0, 0);
-    // 脚掌（前部偏 -Z = 前方）
+    // 脚掌前部与面罩朝向一致
     add(ankle, shell(0.1, DIM.footH, DIM.footLen, matDark),
-        0, -DIM.footH * 0.5 - 0.01, -DIM.footLen * 0.18);
+        0, -DIM.footH * 0.5 - 0.01, DIM.footLen * 0.18 * FORWARD_Z);
   }
 
   root.traverse((o) => { if (o.isMesh) o.castShadow = true; });

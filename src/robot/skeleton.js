@@ -28,5 +28,7 @@ export const DIM = {
 
 // 计算地面以上的根（pelvis）默认高度
 export const GROUND_Y = 0;
+// 机器人视觉正面：面罩、胸甲、脚尖、膝盖和前进方向必须统一。
+export const FORWARD_Z = 1;
 export const baseRootHeight = () =>
   DIM.standHipHeight + DIM.pelvisH * 0.5 + DIM.footH * 0.5;

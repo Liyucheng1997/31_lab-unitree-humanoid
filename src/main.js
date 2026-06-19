@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { createScene } from './scene.js';
-import { buildRobot } from './robot/RobotBuilder.js';
-import { MotionController } from './control/MotionController.js';
-import { initHUD } from './ui/HUD.js';
+import { createScene } from './scene.js?v=20260619-knee-fix';
+import { buildRobot } from './robot/RobotBuilder.js?v=20260619-knee-fix';
+import { MotionController } from './control/MotionController.js?v=20260619-knee-fix';
+import { initHUD } from './ui/HUD.js?v=20260619-knee-fix';
+import { BADUANJIN_FORMS } from './control/behaviors.js?v=20260619-knee-fix';
 
 const container = document.getElementById('app');
 const { scene, camera, renderer, controls } = createScene(container);
@@ -70,8 +71,11 @@ function animate() {
   renderer.render(scene, camera);
 
   // 读数
+  const form = controller.behaviorName === 'baduanjin'
+    ? ` · 第 ${controller.current.formIndex + 1}/8 式 <b>${BADUANJIN_FORMS[controller.current.formIndex]}</b>`
+    : '';
   readout.innerHTML =
-    `行为 <b>${controller.behaviorName}</b> · ` +
+    `行为 <b>${controller.behaviorName}</b>${form} · ` +
     `pos (${p.x.toFixed(2)}, ${p.z.toFixed(2)}) · ` +
     `yaw ${(controller.yaw % (Math.PI * 2)).toFixed(2)} · ` +
     `${(1 / Math.max(dt, 1e-3)).toFixed(0)} fps`;
@@ -79,4 +83,4 @@ function animate() {
 animate();
 
 // 暴露到全局便于调试
-window.__robot = { rig, controller, scene, camera, view, controls };
+window.__robot = { rig, controller, scene, camera, view, controls, hud };

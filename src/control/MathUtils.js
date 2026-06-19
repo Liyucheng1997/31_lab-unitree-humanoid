@@ -1,5 +1,5 @@
 // 数学工具：插值、平滑（类临界阻尼）、两骨解析 IK
-// 约定：世界前进方向 = -Z（机器人面向 -Z）。正的关节 rotation.x 使肢体向 -Z（前方）摆动。
+// 几何约定：正的 rotation.x 使向下的肢体朝 -Z 摆动；机器人视觉正面定义在 skeleton.js。
 
 export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 export const lerp = (a, b, t) => a + (b - a) * t;
@@ -35,7 +35,7 @@ export const smoothstep = (t) => {
  *   令 k1 = L1 + L2·cos(knee), k2 = L2·sin(knee)
  *   => hip = atan2(-z,-y) - atan2(k2,k1)
  *
- * @param {number} z      目标相对髋的 Z（前为负）
+ * @param {number} z      目标相对髋的局部 Z
  * @param {number} y      目标相对髋的 Y（下为负）
  * @param {number} L1     大腿长
  * @param {number} L2     小腿长

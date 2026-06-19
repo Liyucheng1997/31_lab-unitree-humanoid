@@ -11,10 +11,10 @@
 //
 // ctx = { t, dt, dim, params }  params 来自 HUD（speed/stride 等）
 
-import { DIM, baseRootHeight } from '../robot/skeleton.js';
-import { solveLegIK, clamp, lerp, smoothstep, TAU } from './MathUtils.js';
+import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260619-knee-fix';
+import { solveLegIK, clamp, lerp, smoothstep, TAU } from './MathUtils.js?v=20260619-knee-fix';
 
-const KNEE_SIGN = -1; // 膝弯曲方向；若膝盖反向（像鸟腿）改为 +1
+export const KNEE_SIGN = FORWARD_Z; // 膝盖始终朝视觉正面弯曲
 
 // 工具：让脚相对髋做 IK，写入 hip/knee/ankle 目标
 function footIK(pose, side, footZ, footY, extraAnkle = 0) {
@@ -104,8 +104,8 @@ export class WalkBehavior {
     const baseY = -(DIM.standHipHeight - 0.01);
     for (const side of ['L', 'R']) {
       const { f, lift } = legTarget(legPhase(side));
-      // forward = -Z，所以前向偏移 f 对应 localZ = -f
-      footIK(p, side, -f, baseY + lift, lift * 0.6);
+      // 足端前向偏移与机器人视觉正面保持一致
+      footIK(p, side, f * FORWARD_Z, baseY + lift, lift * 0.6);
     }
 
     // 前进速度：一个周期身体前进约 2S（支撑相走完整个行程）
@@ -203,6 +203,134 @@ export class DanceBehavior {
 }
 
 // ============================================================
+// 八段锦：八式传统功法，每式 8 秒，完整一轮约 64 秒。
+// 机器人没有腕/掌关节，因此以肩、肘、腰、头和重心变化表达动作语义。
+// ============================================================
+export const BADUANJIN_FORMS = [
+  '双手托天理三焦', '左右开弓似射雕', '调理脾胃须单举', '五劳七伤往后瞧',
+  '摇头摆尾去心火', '两手攀足固肾腰', '攒拳怒目增气力', '背后七颠百病消',
+];
+
+const FORM_SECONDS = 8;
+
+function baduanjinBase(squat = 0) {
+  const p = emptyPose();
+  p.rootHeight = baseRootHeight() - squat;
+  const footY = -(DIM.standHipHeight - squat);
+  footIK(p, 'L', 0, footY);
+  footIK(p, 'R', 0, footY);
+  p.joints.head = { x: 0, y: 0, z: 0 };
+  p.joints.waist = { x: 0, y: 0, z: 0 };
+  return p;
+}
+
+function mixPose(a, b, t) {
+  const p = emptyPose();
+  for (const key of ['rootHeight', 'forwardSpeed', 'rootRoll', 'rootPitch'])
+    p[key] = lerp(a[key] || 0, b[key] || 0, t);
+  const names = new Set([...Object.keys(a.joints), ...Object.keys(b.joints)]);
+  for (const name of names) {
+    const av = a.joints[name] || { x: 0, y: 0, z: 0 };
+    const bv = b.joints[name] || { x: 0, y: 0, z: 0 };
+    p.joints[name] = {
+      x: lerp(av.x, bv.x, t), y: lerp(av.y, bv.y, t), z: lerp(av.z, bv.z, t),
+    };
+  }
+  return p;
+}
+
+function baduanjinForm(index, u) {
+  const breath = Math.sin(u * Math.PI * 2);
+  const open = Math.sin(u * Math.PI); // 起势 → 展开 → 收势
+  let p = baduanjinBase();
+
+  if (index === 0) { // 双手由腹前交叉上托
+    p.joints.shoulderL = { x: -2.75 * open, y: 0, z: 0.16 + 0.18 * open };
+    p.joints.shoulderR = { x: -2.75 * open, y: 0, z: -0.16 - 0.18 * open };
+    p.joints.elbowL = { x: 1.25 * (1 - open), y: 0, z: 0 };
+    p.joints.elbowR = { x: 1.25 * (1 - open), y: 0, z: 0 };
+    p.joints.head.x = -0.16 * open;
+  } else if (index === 1) { // 马步，左右轮换拉弓
+    const side = Math.sin(u * Math.PI * 2);
+    const squat = 0.1 * open;
+    p = baduanjinBase(squat);
+    p.joints.shoulderL = { x: -1.25, y: -0.65 * side, z: 0.65 + 0.35 * side };
+    p.joints.shoulderR = { x: -1.25, y: -0.65 * side, z: -0.65 + 0.35 * side };
+    p.joints.elbowL = { x: 0.45 + 1.05 * Math.max(0, -side), y: 0, z: 0 };
+    p.joints.elbowR = { x: 0.45 + 1.05 * Math.max(0, side), y: 0, z: 0 };
+    p.joints.waist.y = side * 0.24;
+    p.joints.head.y = side * 0.3;
+  } else if (index === 2) { // 一手上举，一手下按，半程换边
+    const side = Math.sin(u * Math.PI * 2);
+    const leftUp = (side + 1) * 0.5;
+    p.joints.shoulderL = { x: lerp(0.15, -2.8, leftUp), y: 0, z: 0.2 };
+    p.joints.shoulderR = { x: lerp(-2.8, 0.15, leftUp), y: 0, z: -0.2 };
+    p.joints.elbowL = { x: lerp(0.25, 0.05, leftUp), y: 0, z: 0 };
+    p.joints.elbowR = { x: lerp(0.05, 0.25, leftUp), y: 0, z: 0 };
+    p.rootRoll = -side * 0.035;
+  } else if (index === 3) { // 手臂下垂，头缓慢左右后顾
+    p.joints.shoulderL = { x: 0.08, y: 0, z: 0.18 };
+    p.joints.shoulderR = { x: 0.08, y: 0, z: -0.18 };
+    p.joints.elbowL = p.joints.elbowR = { x: 0.12, y: 0, z: 0 };
+    p.joints.head.y = breath * 0.72;
+    p.joints.waist.y = breath * 0.12;
+  } else if (index === 4) { // 马步俯身，腰胯与头部画圆
+    const squat = 0.13 * open;
+    p = baduanjinBase(squat);
+    p.rootRoll = breath * 0.1;
+    p.rootPitch = 0.18 + open * 0.18;
+    p.joints.waist = { x: 0.2, y: Math.cos(u * TAU) * 0.2, z: -breath * 0.16 };
+    p.joints.head = { x: -0.12, y: -Math.cos(u * TAU) * 0.35, z: breath * 0.18 };
+    p.joints.shoulderL = { x: 0.2, y: 0, z: 0.42 };
+    p.joints.shoulderR = { x: 0.2, y: 0, z: -0.42 };
+    p.joints.elbowL = p.joints.elbowR = { x: 0.3, y: 0, z: 0 };
+  } else if (index === 5) { // 直膝前屈，双手向足部攀伸
+    const fold = open;
+    p.rootPitch = 0.42 * fold;
+    p.joints.waist.x = 0.82 * fold;
+    p.joints.head.x = -0.25 * fold;
+    p.joints.shoulderL = { x: -0.55 + 1.3 * fold, y: 0, z: 0.12 };
+    p.joints.shoulderR = { x: -0.55 + 1.3 * fold, y: 0, z: -0.12 };
+    p.joints.elbowL = p.joints.elbowR = { x: 0.1, y: 0, z: 0 };
+  } else if (index === 6) { // 马步攒拳，左右交替冲拳
+    const side = Math.sin(u * TAU);
+    p = baduanjinBase(0.09 * open);
+    p.joints.shoulderL = { x: -1.3 + side * 0.65, y: -0.3, z: 0.22 };
+    p.joints.shoulderR = { x: -1.3 - side * 0.65, y: 0.3, z: -0.22 };
+    p.joints.elbowL = { x: 0.25 + Math.max(0, -side) * 1.35, y: 0, z: 0 };
+    p.joints.elbowR = { x: 0.25 + Math.max(0, side) * 1.35, y: 0, z: 0 };
+    p.joints.waist.y = side * 0.18;
+    p.joints.head.y = side * 0.12;
+  } else { // 脚跟随呼吸节拍轻颠（以踝、根高度表达）
+    const bounce = Math.pow(Math.max(0, Math.sin(u * Math.PI * 6)), 2);
+    p.rootHeight += bounce * 0.055;
+    p.joints.ankleL.x = p.joints.ankleR.x = -bounce * 0.22;
+    p.joints.shoulderL = { x: 0.05, y: 0, z: 0.12 };
+    p.joints.shoulderR = { x: 0.05, y: 0, z: -0.12 };
+    p.joints.elbowL = p.joints.elbowR = { x: 0.15, y: 0, z: 0 };
+  }
+  return p;
+}
+
+export class BaduanjinBehavior {
+  constructor() { this.name = 'baduanjin'; this.elapsed = 0; }
+  reset() { this.elapsed = 0; }
+  get formIndex() { return Math.floor(this.elapsed / FORM_SECONDS) % BADUANJIN_FORMS.length; }
+  get formName() { return BADUANJIN_FORMS[this.formIndex]; }
+  get progress() { return (this.elapsed % FORM_SECONDS) / FORM_SECONDS; }
+  update(ctx) {
+    this.elapsed = (this.elapsed + ctx.dt) % (FORM_SECONDS * BADUANJIN_FORMS.length);
+    const index = this.formIndex;
+    const u = this.progress;
+    const current = baduanjinForm(index, u);
+    // 每式末 0.8 秒预混合下一式，避免姿态突变。
+    if (u < 0.9) return current;
+    const next = baduanjinForm((index + 1) % BADUANJIN_FORMS.length, 0);
+    return mixPose(current, next, smoothstep((u - 0.9) / 0.1));
+  }
+}
+
+// ============================================================
 // JUMP：蹲伏 → 起跳 → 腾空(弹道) → 落地缓冲 → 恢复
 //   一次性动作，结束后回到 idle
 // ============================================================
@@ -255,8 +383,8 @@ export class JumpBehavior {
                   this.t < this.crouch + this.push + this.air;
     if (inAir) {
       const tuck = 0.5;
-      p.joints.hipL = { x: 0.5, y: 0, z: 0 };
-      p.joints.hipR = { x: 0.5, y: 0, z: 0 };
+      p.joints.hipL = { x: -0.5 * FORWARD_Z, y: 0, z: 0 };
+      p.joints.hipR = { x: -0.5 * FORWARD_Z, y: 0, z: 0 };
       p.joints.kneeL = { x: KNEE_SIGN * 1.0, y: 0, z: 0 };
       p.joints.kneeR = { x: KNEE_SIGN * 1.0, y: 0, z: 0 };
       p.joints.ankleL = { x: 0.3, y: 0, z: 0 };
