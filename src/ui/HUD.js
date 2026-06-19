@@ -1,5 +1,5 @@
 // HUD：绑定动作按钮、滑块、显示/键盘控制
-import { ClassicalMusic } from '../audio/ClassicalMusic.js?v=20260619-knee-fix';
+import { ClassicalMusic } from '../audio/ClassicalMusic.js?v=20260619-model-v3';
 
 const BEHAVIORS = [
   { id: 'idle', label: '站立' },
@@ -10,7 +10,7 @@ const BEHAVIORS = [
   { id: 'jump', label: '跳跃' },
 ];
 
-export function initHUD(controller, view) {
+export function initHUD(controller, view, camera, controls) {
   const music = new ClassicalMusic();
   // ---- 动作按钮 ----
   const wrap = document.getElementById('behavior-buttons');
@@ -53,6 +53,27 @@ export function initHUD(controller, view) {
   bind('speed', 'speed');
   bind('stride', 'stride');
   bind('turn', 'turn');
+
+  // ---- 连续镜头距离：补足不同触控板/滚轮设备上缩放过快的问题 ----
+  const cameraSlider = document.getElementById('camera-distance');
+  const cameraValue = document.getElementById('camera-distance-val');
+  const applyCameraDistance = () => {
+    const distance = parseFloat(cameraSlider.value);
+    const direction = camera.position.clone().sub(controls.target).normalize();
+    camera.position.copy(controls.target).addScaledVector(direction, distance);
+    view.cameraDistance = distance;
+    cameraValue.textContent = `${distance.toFixed(1)}m`;
+    controls.update();
+  };
+  cameraSlider.addEventListener('input', applyCameraDistance);
+  controls.addEventListener('change', () => {
+    const distance = camera.position.distanceTo(controls.target);
+    view.cameraDistance = distance;
+    cameraSlider.value = distance.toFixed(1);
+    cameraValue.textContent = `${distance.toFixed(1)}m`;
+  });
+  cameraSlider.value = view.cameraDistance.toFixed(1);
+  cameraValue.textContent = `${view.cameraDistance.toFixed(1)}m`;
 
   // ---- 显示开关 ----
   const skBtn = document.getElementById('toggle-skeleton');

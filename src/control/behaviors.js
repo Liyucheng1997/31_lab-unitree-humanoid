@@ -11,8 +11,8 @@
 //
 // ctx = { t, dt, dim, params }  params 来自 HUD（speed/stride 等）
 
-import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260619-knee-fix';
-import { solveLegIK, clamp, lerp, smoothstep, TAU } from './MathUtils.js?v=20260619-knee-fix';
+import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260619-model-v3';
+import { solveLegIK, clamp, lerp, smoothstep, TAU } from './MathUtils.js?v=20260619-model-v3';
 
 export const KNEE_SIGN = FORWARD_Z; // 膝盖始终朝视觉正面弯曲
 
@@ -28,6 +28,9 @@ function footIK(pose, side, footZ, footY, extraAnkle = 0) {
 function emptyPose() {
   return { joints: {}, rootHeight: baseRootHeight(), forwardSpeed: 0, rootRoll: 0, rootPitch: 0 };
 }
+
+// 正值表示符合人体结构的“向前屈肘”，转换为 Three.js 绕 X 轴的负角度。
+const elbowFlex = (x, y = 0, z = 0) => ({ x: -x, y, z });
 
 // ============================================================
 // IDLE：站立，呼吸起伏 + 轻微重心摆动
@@ -47,10 +50,10 @@ export class IdleBehavior {
 
     // 手臂自然下垂 + 微摆
     const a = Math.sin(ctx.t * 1.6) * 0.04;
-    p.joints.shoulderL = { x: 0.05 + a, y: 0, z: 0.12 };
-    p.joints.shoulderR = { x: 0.05 - a, y: 0, z: -0.12 };
-    p.joints.elbowL = { x: 0.18, y: 0, z: 0 };
-    p.joints.elbowR = { x: 0.18, y: 0, z: 0 };
+    p.joints.shoulderL = { x: -0.08 + a, y: 0, z: 0.12 };
+    p.joints.shoulderR = { x: -0.08 - a, y: 0, z: -0.12 };
+    p.joints.elbowL = elbowFlex(0.22);
+    p.joints.elbowR = elbowFlex(0.22);
     p.joints.waist = { x: 0, y: sway * 0.4, z: 0 };
     p.joints.head = { x: 0, y: Math.sin(ctx.t * 0.5) * 0.12, z: 0 };
     return p;
@@ -116,8 +119,8 @@ export class WalkBehavior {
     const swingR = Math.sin((this.phase + 0.5) * TAU);
     p.joints.shoulderL = { x: -swingR * 0.5, y: 0, z: 0.1 };
     p.joints.shoulderR = { x: -swingL * 0.5, y: 0, z: -0.1 };
-    p.joints.elbowL = { x: 0.5 + swingR * 0.15, y: 0, z: 0 };
-    p.joints.elbowR = { x: 0.5 + swingL * 0.15, y: 0, z: 0 };
+    p.joints.elbowL = elbowFlex(0.5 + swingR * 0.15);
+    p.joints.elbowR = elbowFlex(0.5 + swingL * 0.15);
 
     // 躯干随步伐反向小幅扭转
     p.joints.waist = { x: 0.02, y: swingL * 0.06, z: sway * 0.3 };
@@ -135,7 +138,7 @@ export class WaveBehavior {
     const p = new IdleBehavior().update(ctx);
     const wave = Math.sin(ctx.t * 6) * 0.35;
     p.joints.shoulderR = { x: -2.4, y: 0, z: -0.5 };
-    p.joints.elbowR = { x: 0.4 + wave, y: wave * 0.5, z: 0 };
+    p.joints.elbowR = elbowFlex(0.4 + wave, wave * 0.5);
     p.joints.head = { x: -0.1, y: -0.25, z: 0 }; // 看向举起的手
     p.joints.waist = { x: 0, y: -0.08, z: 0 };
     return p;
@@ -174,26 +177,26 @@ export class DanceBehavior {
       // 双手上举交替
       p.joints.shoulderL = { x: -2.2 + a * 0.6, y: 0, z: 0.3 };
       p.joints.shoulderR = { x: -2.2 - a * 0.6, y: 0, z: -0.3 };
-      p.joints.elbowL = { x: 0.3, y: 0, z: 0 };
-      p.joints.elbowR = { x: 0.3, y: 0, z: 0 };
+      p.joints.elbowL = elbowFlex(0.3);
+      p.joints.elbowR = elbowFlex(0.3);
     } else if (seg === 1) {
       // 抱胸 / 推手
       p.joints.shoulderL = { x: -1.3, y: 0.4 + a * 0.4, z: 0.4 };
       p.joints.shoulderR = { x: -1.3, y: -0.4 - a * 0.4, z: -0.4 };
-      p.joints.elbowL = { x: 1.6, y: 0, z: 0 };
-      p.joints.elbowR = { x: 1.6, y: 0, z: 0 };
+      p.joints.elbowL = elbowFlex(1.6);
+      p.joints.elbowR = elbowFlex(1.6);
     } else if (seg === 2) {
       // 风车臂
       p.joints.shoulderL = { x: -1.5 + a * 1.6, y: 0, z: 0.2 };
       p.joints.shoulderR = { x: -1.5 - a * 1.6, y: 0, z: -0.2 };
-      p.joints.elbowL = { x: 0.4, y: 0, z: 0 };
-      p.joints.elbowR = { x: 0.4, y: 0, z: 0 };
+      p.joints.elbowL = elbowFlex(0.4);
+      p.joints.elbowR = elbowFlex(0.4);
     } else {
       // 摆手 + 扭胯
       p.joints.shoulderL = { x: -0.6 + b * 0.5, y: 0, z: 0.8 };
       p.joints.shoulderR = { x: -0.6 - b * 0.5, y: 0, z: -0.8 };
-      p.joints.elbowL = { x: 0.9, y: 0, z: 0 };
-      p.joints.elbowR = { x: 0.9, y: 0, z: 0 };
+      p.joints.elbowL = elbowFlex(0.9);
+      p.joints.elbowR = elbowFlex(0.9);
     }
 
     p.joints.waist = { x: 0, y: sway * 1.2, z: -sway * 0.6 };
@@ -247,8 +250,8 @@ function baduanjinForm(index, u) {
   if (index === 0) { // 双手由腹前交叉上托
     p.joints.shoulderL = { x: -2.75 * open, y: 0, z: 0.16 + 0.18 * open };
     p.joints.shoulderR = { x: -2.75 * open, y: 0, z: -0.16 - 0.18 * open };
-    p.joints.elbowL = { x: 1.25 * (1 - open), y: 0, z: 0 };
-    p.joints.elbowR = { x: 1.25 * (1 - open), y: 0, z: 0 };
+    p.joints.elbowL = elbowFlex(1.25 * (1 - open));
+    p.joints.elbowR = elbowFlex(1.25 * (1 - open));
     p.joints.head.x = -0.16 * open;
   } else if (index === 1) { // 马步，左右轮换拉弓
     const side = Math.sin(u * Math.PI * 2);
@@ -256,8 +259,8 @@ function baduanjinForm(index, u) {
     p = baduanjinBase(squat);
     p.joints.shoulderL = { x: -1.25, y: -0.65 * side, z: 0.65 + 0.35 * side };
     p.joints.shoulderR = { x: -1.25, y: -0.65 * side, z: -0.65 + 0.35 * side };
-    p.joints.elbowL = { x: 0.45 + 1.05 * Math.max(0, -side), y: 0, z: 0 };
-    p.joints.elbowR = { x: 0.45 + 1.05 * Math.max(0, side), y: 0, z: 0 };
+    p.joints.elbowL = elbowFlex(0.45 + 1.05 * Math.max(0, -side));
+    p.joints.elbowR = elbowFlex(0.45 + 1.05 * Math.max(0, side));
     p.joints.waist.y = side * 0.24;
     p.joints.head.y = side * 0.3;
   } else if (index === 2) { // 一手上举，一手下按，半程换边
@@ -265,13 +268,13 @@ function baduanjinForm(index, u) {
     const leftUp = (side + 1) * 0.5;
     p.joints.shoulderL = { x: lerp(0.15, -2.8, leftUp), y: 0, z: 0.2 };
     p.joints.shoulderR = { x: lerp(-2.8, 0.15, leftUp), y: 0, z: -0.2 };
-    p.joints.elbowL = { x: lerp(0.25, 0.05, leftUp), y: 0, z: 0 };
-    p.joints.elbowR = { x: lerp(0.05, 0.25, leftUp), y: 0, z: 0 };
+    p.joints.elbowL = elbowFlex(lerp(0.25, 0.05, leftUp));
+    p.joints.elbowR = elbowFlex(lerp(0.05, 0.25, leftUp));
     p.rootRoll = -side * 0.035;
   } else if (index === 3) { // 手臂下垂，头缓慢左右后顾
     p.joints.shoulderL = { x: 0.08, y: 0, z: 0.18 };
     p.joints.shoulderR = { x: 0.08, y: 0, z: -0.18 };
-    p.joints.elbowL = p.joints.elbowR = { x: 0.12, y: 0, z: 0 };
+    p.joints.elbowL = p.joints.elbowR = elbowFlex(0.12);
     p.joints.head.y = breath * 0.72;
     p.joints.waist.y = breath * 0.12;
   } else if (index === 4) { // 马步俯身，腰胯与头部画圆
@@ -283,7 +286,7 @@ function baduanjinForm(index, u) {
     p.joints.head = { x: -0.12, y: -Math.cos(u * TAU) * 0.35, z: breath * 0.18 };
     p.joints.shoulderL = { x: 0.2, y: 0, z: 0.42 };
     p.joints.shoulderR = { x: 0.2, y: 0, z: -0.42 };
-    p.joints.elbowL = p.joints.elbowR = { x: 0.3, y: 0, z: 0 };
+    p.joints.elbowL = p.joints.elbowR = elbowFlex(0.3);
   } else if (index === 5) { // 直膝前屈，双手向足部攀伸
     const fold = open;
     p.rootPitch = 0.42 * fold;
@@ -291,23 +294,23 @@ function baduanjinForm(index, u) {
     p.joints.head.x = -0.25 * fold;
     p.joints.shoulderL = { x: -0.55 + 1.3 * fold, y: 0, z: 0.12 };
     p.joints.shoulderR = { x: -0.55 + 1.3 * fold, y: 0, z: -0.12 };
-    p.joints.elbowL = p.joints.elbowR = { x: 0.1, y: 0, z: 0 };
+    p.joints.elbowL = p.joints.elbowR = elbowFlex(0.1);
   } else if (index === 6) { // 马步攒拳，左右交替冲拳
     const side = Math.sin(u * TAU);
     p = baduanjinBase(0.09 * open);
     p.joints.shoulderL = { x: -1.3 + side * 0.65, y: -0.3, z: 0.22 };
     p.joints.shoulderR = { x: -1.3 - side * 0.65, y: 0.3, z: -0.22 };
-    p.joints.elbowL = { x: 0.25 + Math.max(0, -side) * 1.35, y: 0, z: 0 };
-    p.joints.elbowR = { x: 0.25 + Math.max(0, side) * 1.35, y: 0, z: 0 };
+    p.joints.elbowL = elbowFlex(0.25 + Math.max(0, -side) * 1.35);
+    p.joints.elbowR = elbowFlex(0.25 + Math.max(0, side) * 1.35);
     p.joints.waist.y = side * 0.18;
     p.joints.head.y = side * 0.12;
   } else { // 脚跟随呼吸节拍轻颠（以踝、根高度表达）
     const bounce = Math.pow(Math.max(0, Math.sin(u * Math.PI * 6)), 2);
     p.rootHeight += bounce * 0.055;
     p.joints.ankleL.x = p.joints.ankleR.x = -bounce * 0.22;
-    p.joints.shoulderL = { x: 0.05, y: 0, z: 0.12 };
-    p.joints.shoulderR = { x: 0.05, y: 0, z: -0.12 };
-    p.joints.elbowL = p.joints.elbowR = { x: 0.15, y: 0, z: 0 };
+    p.joints.shoulderL = { x: -0.08, y: 0, z: 0.12 };
+    p.joints.shoulderR = { x: -0.08, y: 0, z: -0.12 };
+    p.joints.elbowL = p.joints.elbowR = elbowFlex(0.15);
   }
   return p;
 }
@@ -399,8 +402,8 @@ export class JumpBehavior {
     const armUp = inAir ? -2.6 : -0.3 + crouchAmt * 4;
     p.joints.shoulderL = { x: armUp, y: 0, z: 0.15 };
     p.joints.shoulderR = { x: armUp, y: 0, z: -0.15 };
-    p.joints.elbowL = { x: 0.3, y: 0, z: 0 };
-    p.joints.elbowR = { x: 0.3, y: 0, z: 0 };
+    p.joints.elbowL = elbowFlex(0.3);
+    p.joints.elbowR = elbowFlex(0.3);
     p.joints.waist = { x: inAir ? -0.15 : crouchAmt * 1.5, y: 0, z: 0 };
     return p;
   }

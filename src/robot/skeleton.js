@@ -1,29 +1,29 @@
 // 机器人尺寸与骨骼参数（单位：米）。仿宇树 G1 比例，整体约 1.3m 高。
 export const DIM = {
   // 腿
-  thigh: 0.34,        // L1 大腿
-  shin: 0.32,         // L2 小腿
+  thigh: 0.40,        // L1 大腿
+  shin: 0.38,         // L2 小腿
   footLen: 0.18,
-  footH: 0.05,
+  footH: 0.055,
   hipWidth: 0.20,     // 两髋间距（左右各一半）
-  standHipHeight: 0.58, // 站立时髋枢轴到脚的高度（< thigh+shin，膝微屈）
+  standHipHeight: 0.70, // 站立时髋枢轴到脚的高度（< thigh+shin，膝微屈）
 
   // 躯干
-  pelvisH: 0.14,
+  pelvisH: 0.16,
   pelvisW: 0.26,
-  torsoH: 0.30,
+  torsoH: 0.37,
   torsoW: 0.30,
   torsoD: 0.18,
 
   // 头
-  neckH: 0.06,
-  headH: 0.18,
+  neckH: 0.07,
+  headH: 0.20,
   headW: 0.17,
 
   // 臂
   shoulderWidth: 0.21, // 肩枢轴相对中线的横向距离
-  upperArm: 0.26,
-  foreArm: 0.24,
+  upperArm: 0.30,
+  foreArm: 0.28,
 };
 
 // 计算地面以上的根（pelvis）默认高度

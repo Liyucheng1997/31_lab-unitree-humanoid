@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { dampEuler, damp, clamp } from './MathUtils.js?v=20260619-knee-fix';
-import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260619-knee-fix';
+import { dampEuler, damp, clamp } from './MathUtils.js?v=20260619-model-v3';
+import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260619-model-v3';
 import {
   IdleBehavior, WalkBehavior, DanceBehavior, WaveBehavior, JumpBehavior, BaduanjinBehavior,
-} from './behaviors.js?v=20260619-knee-fix';
+} from './behaviors.js?v=20260619-model-v3';
 
 // 关节的"静止"姿态（无目标时回归）
 const REST = {
-  shoulderL: { x: 0.05, y: 0, z: 0.12 }, shoulderR: { x: 0.05, y: 0, z: -0.12 },
-  elbowL: { x: 0.18, y: 0, z: 0 }, elbowR: { x: 0.18, y: 0, z: 0 },
+  shoulderL: { x: -0.08, y: 0, z: 0.12 }, shoulderR: { x: -0.08, y: 0, z: -0.12 },
+  elbowL: { x: -0.22, y: 0, z: 0 }, elbowR: { x: -0.22, y: 0, z: 0 },
 };
 
 /**

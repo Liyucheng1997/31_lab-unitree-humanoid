@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { createScene } from './scene.js?v=20260619-knee-fix';
-import { buildRobot } from './robot/RobotBuilder.js?v=20260619-knee-fix';
-import { MotionController } from './control/MotionController.js?v=20260619-knee-fix';
-import { initHUD } from './ui/HUD.js?v=20260619-knee-fix';
-import { BADUANJIN_FORMS } from './control/behaviors.js?v=20260619-knee-fix';
+import { createScene } from './scene.js?v=20260619-model-v3';
+import { buildRobot } from './robot/RobotBuilder.js?v=20260619-model-v3';
+import { MotionController } from './control/MotionController.js?v=20260619-model-v3';
+import { initHUD } from './ui/HUD.js?v=20260619-model-v3';
+import { BADUANJIN_FORMS } from './control/behaviors.js?v=20260619-model-v3';
 
 const container = document.getElementById('app');
 const { scene, camera, renderer, controls } = createScene(container);
@@ -31,10 +31,14 @@ for (const name of Object.keys(rig.joints)) {
 scene.add(jointDots);
 
 // ---- 视图状态 ----
-const view = { showSkeleton: false, followCam: false };
+const view = {
+  showSkeleton: false,
+  followCam: false,
+  cameraDistance: camera.position.distanceTo(controls.target),
+};
 
 // ---- HUD ----
-const hud = initHUD(controller, view);
+const hud = initHUD(controller, view, camera, controls);
 
 // ---- 状态读数 ----
 const readout = document.getElementById('state-readout');
@@ -60,6 +64,7 @@ function animate() {
   const p = rig.root.position;
   if (view.followCam) {
     if (!lastFollow) camOffset.copy(camera.position).sub(controls.target);
+    camOffset.setLength(view.cameraDistance);
     const tgt = new THREE.Vector3(p.x, 0.9, p.z);
     controls.target.lerp(tgt, 0.12);
     const desired = new THREE.Vector3().copy(controls.target).add(camOffset);

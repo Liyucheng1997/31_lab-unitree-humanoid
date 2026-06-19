@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const VERSION = '20260619-knee-fix';
+const VERSION = '20260619-model-v3';
 const browserFiles = [
   'index.html', 'src/main.js', 'src/scene.js', 'src/robot/RobotBuilder.js',
   'src/control/MotionController.js', 'src/control/behaviors.js', 'src/ui/HUD.js',

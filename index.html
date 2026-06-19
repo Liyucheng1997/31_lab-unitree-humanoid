@@ -48,6 +48,11 @@
 
     <div class="hud-section">
       <div class="hud-label">显示 / View</div>
+      <div class="slider-row">
+        <span>镜头</span>
+        <input id="camera-distance" type="range" min="1.5" max="7" step="0.1" value="2.9" />
+        <em id="camera-distance-val">2.9m</em>
+      </div>
       <div class="btn-row">
         <button id="toggle-skeleton" class="mini">骨架</button>
         <button id="toggle-follow" class="mini">跟随</button>
@@ -62,6 +67,6 @@
 
   <div id="state-readout"></div>
 
-  <script type="module" src="./src/main.js?v=20260619-knee-fix"></script>
+  <script type="module" src="./src/main.js?v=20260619-model-v3"></script>
 </body>
 </html>
