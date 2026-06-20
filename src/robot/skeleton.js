@@ -4,6 +4,7 @@ export const DIM = {
   thigh: 0.40,        // L1 大腿
   shin: 0.38,         // L2 小腿
   footLen: 0.18,
+  footWidth: 0.105,
   footH: 0.055,
   hipWidth: 0.20,     // 两髋间距（左右各一半）
   standHipHeight: 0.70, // 站立时髋枢轴到脚的高度（< thigh+shin，膝微屈）

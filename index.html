@@ -60,13 +60,26 @@
       </div>
     </div>
 
+    <div class="hud-section">
+      <div class="hud-label">动力学 / Balance</div>
+      <div class="btn-row">
+        <button id="toggle-balance" class="mini">平衡：开</button>
+        <button id="push-test" class="mini">扰动测试</button>
+      </div>
+      <div class="balance-legend">
+        <span class="support-dot"></span>支撑域
+        <span class="com-dot"></span>重心
+        <span class="zmp-dot"></span>ZMP
+      </div>
+    </div>
+
     <div class="hud-hint">
-      八段锦自动配乐 · WASD 移动 · 空格跳跃 · 鼠标拖拽旋转视角
+      真实重力 9.81m/s² · WASD 移动 · 空格跳跃 · 可测试外部扰动
     </div>
   </div>
 
   <div id="state-readout"></div>
 
-  <script type="module" src="./src/main.js?v=20260619-model-v3"></script>
+  <script type="module" src="./src/main.js?v=20260620-baduanjin-steps-v2"></script>
 </body>
 </html>

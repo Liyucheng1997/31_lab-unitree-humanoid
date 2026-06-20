@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DIM, FORWARD_Z } from './skeleton.js?v=20260619-model-v3';
+import { DIM, FORWARD_Z } from './skeleton.js?v=20260620-baduanjin-steps-v2';
 
 // 高级材质：陶瓷白装甲 / 阳极黑结构 / 拉丝金属 / 冰蓝状态灯
 const MAT = {
@@ -278,13 +278,13 @@ function buildLeg(root, side, joints) {
 
   // 两段式脚掌：黑色防滑底 + 白色楔形脚背 + 深色脚尖。
   const footZ = DIM.footLen * 0.16 * FORWARD_Z;
-  add(ankle, box(0.105, DIM.footH * 0.35, DIM.footLen * 1.08, MAT.rubber),
+  add(ankle, box(DIM.footWidth, DIM.footH * 0.35, DIM.footLen * 1.08, MAT.rubber),
     0, -DIM.footH * 0.66, footZ);
   const footTop = add(ankle,
     armorPlate(0.087, 0.1, DIM.footLen * 0.7, 0.045, MAT.shell, 0.007),
     0, -DIM.footH * 0.36, footZ + 0.012 * FORWARD_Z);
   footTop.rotation.x = Math.PI / 2;
-  add(ankle, box(0.103, 0.018, 0.045, MAT.frame),
+  add(ankle, box(DIM.footWidth * 0.98, 0.018, 0.045, MAT.frame),
     0, -DIM.footH * 0.52, DIM.footLen * 0.63 * FORWARD_Z);
 }
 

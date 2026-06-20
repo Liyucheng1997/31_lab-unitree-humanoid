@@ -11,22 +11,37 @@
 //
 // ctx = { t, dt, dim, params }  params 来自 HUD（speed/stride 等）
 
-import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260619-model-v3';
-import { solveLegIK, clamp, lerp, smoothstep, TAU } from './MathUtils.js?v=20260619-model-v3';
+import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260620-baduanjin-steps-v2';
+import { solveLegIK, clamp, lerp, smoothstep, TAU } from './MathUtils.js?v=20260620-baduanjin-steps-v2';
+import { GRAVITY } from './BalanceController.js?v=20260620-baduanjin-steps-v2';
 
 export const KNEE_SIGN = FORWARD_Z; // 膝盖始终朝视觉正面弯曲
 
 // 工具：让脚相对髋做 IK，写入 hip/knee/ankle 目标
-function footIK(pose, side, footZ, footY, extraAnkle = 0) {
-  const { hip, knee } = solveLegIK(footZ, footY, DIM.thigh, DIM.shin, KNEE_SIGN);
-  pose.joints['hip' + side] = { x: hip, y: 0, z: 0 };
+function footIK(pose, side, footZ, footY, extraAnkle = 0, contact = true,
+                lateral = 0, footYaw = 0) {
+  // 先把横向目标投影到腿长平面，再分别求髋俯仰与髋外展。
+  const projectedY = -Math.hypot(footY, lateral);
+  const { hip, knee } = solveLegIK(footZ, projectedY, DIM.thigh, DIM.shin, KNEE_SIGN);
+  const hipRoll = Math.atan2(lateral, -footY);
+  pose.joints['hip' + side] = { x: hip, y: footYaw, z: hipRoll };
   pose.joints['knee' + side] = { x: knee, y: 0, z: 0 };
   // 踝部反向补偿，使脚掌大致平行地面
-  pose.joints['ankle' + side] = { x: -(hip + knee) + extraAnkle, y: 0, z: 0 };
+  pose.joints['ankle' + side] = {
+    x: -(hip + knee) + extraAnkle, y: -footYaw, z: -hipRoll,
+  };
+  pose.feet[side] = {
+    x: (side === 'L' ? 1 : -1) * DIM.hipWidth * 0.5 + lateral,
+    z: footZ,
+    contact,
+  };
 }
 
 function emptyPose() {
-  return { joints: {}, rootHeight: baseRootHeight(), forwardSpeed: 0, rootRoll: 0, rootPitch: 0 };
+  return {
+    joints: {}, feet: {}, balanceTarget: null,
+    rootHeight: baseRootHeight(), forwardSpeed: 0, rootRoll: 0, rootPitch: 0,
+  };
 }
 
 // 正值表示符合人体结构的“向前屈肘”，转换为 Three.js 绕 X 轴的负角度。
@@ -75,7 +90,7 @@ export class WalkBehavior {
     const stride = ctx.params.stride;   // 步幅（单脚前后行程的一半 ~= S/2）
     const S = stride;                   // 半行程
     const cadence = 0.9 * sp;           // 步频（cycle/s）
-    const duty = 0.62;                  // 支撑相占比
+    const duty = 0.90;                  // 支撑相占比；延长双支撑，为重心换脚留出时间
     const stepHeight = 0.07 + 0.05 * sp;
 
     this.phase = (this.phase + ctx.dt * cadence) % 1;
@@ -108,8 +123,17 @@ export class WalkBehavior {
     for (const side of ['L', 'R']) {
       const { f, lift } = legTarget(legPhase(side));
       // 足端前向偏移与机器人视觉正面保持一致
-      footIK(p, side, f * FORWARD_Z, baseY + lift, lift * 0.6);
+      const contact = legPhase(side) < duty;
+      footIK(p, side, f * FORWARD_Z, baseY + lift, lift * 0.6, contact);
     }
+
+    // Anticipatory COM target: shift toward the stance leg before single support.
+    // The balance loop further clamps this target to the measured support polygon.
+    p.balanceTarget = {
+      // 在双支撑开始时即预载下一条支撑腿，而不是等抬脚后才纠偏。
+      x: (this.phase < 0.5 ? 1 : -1) * DIM.hipWidth * 0.275,
+      z: 0,
+    };
 
     // 前进速度：一个周期身体前进约 2S（支撑相走完整个行程）
     p.forwardSpeed = 2 * S * cadence;
@@ -227,6 +251,128 @@ function baduanjinBase(squat = 0) {
   return p;
 }
 
+function windowPulse(u, start, end) {
+  if (u <= start || u >= end) return 0;
+  return Math.sin(Math.PI * (u - start) / (end - start));
+}
+
+// 慢速换重心 → 单脚摆动 → 双脚落稳。每个 step segment 对应一次脚步。
+function alternatingStep(u, count = 2) {
+  const raw = Math.min(u * count, count - 1e-6);
+  const index = Math.floor(raw);
+  const phase = raw - index;
+  const movingSide = index % 2 === 0 ? 'R' : 'L';
+  const stanceSide = movingSide === 'L' ? 'R' : 'L';
+  const swingU = clamp((phase - 0.28) / 0.38, 0, 1);
+  const lift = phase > 0.28 && phase < 0.66 ? Math.sin(Math.PI * swingU) : 0;
+  const preload = phase < 0.22
+    ? smoothstep(phase / 0.22)
+    : phase < 0.72 ? 1 : 1 - smoothstep((phase - 0.72) / 0.28);
+  return {
+    movingSide, stanceSide, lift,
+    excursion: Math.sin(Math.PI * swingU),
+    contact: lift < 0.025,
+    preload,
+  };
+}
+
+function applyBaduanjinFootwork(index, u, p) {
+  const squat = clamp(baseRootHeight() - p.rootHeight, -0.06, 0.18);
+  let footY = -(DIM.standHipHeight - squat);
+  const feet = {
+    L: { z: 0, lift: 0, lateral: 0, yaw: 0, ankle: 0, contact: true },
+    R: { z: 0, lift: 0, lateral: 0, yaw: 0, ankle: 0, contact: true },
+  };
+  let step = null;
+  const open = Math.sin(Math.PI * u);
+
+  if (index === 0) {
+    // 起势开步与收步：左脚横向开合，手臂上托时同步提踵。
+    feet.L.lateral = 0.065 * open;
+    feet.L.lift = Math.max(windowPulse(u, 0.18, 0.36), windowPulse(u, 0.68, 0.86)) * 0.045;
+    feet.L.contact = feet.L.lift < 0.002;
+    const heel = Math.pow(Math.sin(Math.PI * u), 6);
+    feet.L.ankle = feet.R.ankle = -heel * 0.12;
+  } else if (index === 1) {
+    // 开弓马步：宽站姿，左右交替踏实并把重心移向支撑腿。
+    step = alternatingStep(u, 4);
+    feet.L.lateral = 0.055 * open;
+    feet.R.lateral = -0.055 * open;
+    feet[step.movingSide].lift = step.lift * 0.032;
+    feet[step.movingSide].z = step.excursion * 0.035 * FORWARD_Z;
+    feet[step.movingSide].contact = step.contact;
+  } else if (index === 2) {
+    // 单举配侧点步：举左手时出左脚，举右手时出右脚。
+    step = alternatingStep(u, 2);
+    const sign = step.movingSide === 'L' ? 1 : -1;
+    feet[step.movingSide].lateral = sign * step.excursion * 0.075;
+    feet[step.movingSide].lift = step.lift * 0.05;
+    feet[step.movingSide].contact = step.contact;
+  } else if (index === 3) {
+    // 往后瞧配虚步转脚，脚尖随头腰转向，随后回正。
+    step = alternatingStep(u, 2);
+    const sign = step.movingSide === 'L' ? 1 : -1;
+    feet[step.movingSide].lift = step.lift * 0.025;
+    feet[step.movingSide].yaw = sign * step.excursion * 0.34;
+    feet[step.movingSide].z = -step.excursion * 0.035 * FORWARD_Z;
+    feet[step.movingSide].contact = step.contact;
+  } else if (index === 4) {
+    // 摇头摆尾采用宽马步小垫步，配合腰胯画圆。
+    step = alternatingStep(u, 4);
+    feet.L.lateral = 0.06 * open;
+    feet.R.lateral = -0.06 * open;
+    feet[step.movingSide].lift = step.lift * 0.028;
+    feet[step.movingSide].z = step.excursion * 0.045 * FORWARD_Z;
+    feet[step.movingSide].contact = step.contact;
+  } else if (index === 5) {
+    // 攀足改为交替小弓步，前脚落稳后再俯身。
+    step = alternatingStep(u, 2);
+    feet[step.movingSide].lift = step.lift * 0.045;
+    feet[step.movingSide].z = step.excursion * 0.11 * FORWARD_Z;
+    feet[step.movingSide].contact = step.contact;
+  } else if (index === 6) {
+    // 攒拳配四次进退垫步，拳与同侧落脚同步。
+    step = alternatingStep(u, 4);
+    const sign = step.movingSide === 'L' ? 1 : -1;
+    feet.L.lateral = 0.045 * open;
+    feet.R.lateral = -0.045 * open;
+    feet[step.movingSide].lift = step.lift * 0.035;
+    feet[step.movingSide].z = step.excursion * 0.065 * FORWARD_Z;
+    feet[step.movingSide].yaw = sign * step.excursion * 0.12;
+    feet[step.movingSide].contact = step.contact;
+  } else {
+    // 七颠：脚尖保持接触，脚跟七次有节奏地抬落。
+    const heel = Math.pow(Math.sin(u * Math.PI * 7), 2);
+    feet.L.ankle = feet.R.ankle = -heel * 0.22;
+    // 根节点上升来自踝关节提踵，不再用腿部伸长抵消踝角。
+    footY = -DIM.standHipHeight;
+  }
+
+  for (const side of ['L', 'R']) {
+    const foot = feet[side];
+    footIK(p, side, foot.z, footY + foot.lift, foot.ankle,
+      foot.contact, foot.lateral, foot.yaw);
+  }
+
+  const grounded = Object.entries(p.feet).filter(([, foot]) => foot.contact !== false);
+  const center = grounded.reduce((sum, [, foot]) => ({
+    x: sum.x + foot.x / grounded.length,
+    z: sum.z + foot.z / grounded.length,
+  }), { x: 0, z: 0 });
+  if (step) {
+    const stance = p.feet[step.stanceSide];
+    p.balanceTarget = {
+      x: lerp(center.x, stance.x, step.preload),
+      z: lerp(center.z, stance.z, step.preload),
+    };
+  } else if (index === 0) {
+    // 从本式开始即把重心缓慢预载到右腿，确保左脚开合前捕获点已进入支撑足。
+    p.balanceTarget = { x: p.feet.R.x, z: p.feet.R.z };
+  } else {
+    p.balanceTarget = center;
+  }
+}
+
 function mixPose(a, b, t) {
   const p = emptyPose();
   for (const key of ['rootHeight', 'forwardSpeed', 'rootRoll', 'rootPitch'])
@@ -239,6 +385,9 @@ function mixPose(a, b, t) {
       x: lerp(av.x, bv.x, t), y: lerp(av.y, bv.y, t), z: lerp(av.z, bv.z, t),
     };
   }
+  // 足底接触不能插值；过渡段沿用当前动作的接触几何。
+  p.feet = Object.keys(a.feet).length ? { ...a.feet } : { ...b.feet };
+  p.balanceTarget = a.balanceTarget || b.balanceTarget;
   return p;
 }
 
@@ -304,14 +453,14 @@ function baduanjinForm(index, u) {
     p.joints.elbowR = elbowFlex(0.25 + Math.max(0, side) * 1.35);
     p.joints.waist.y = side * 0.18;
     p.joints.head.y = side * 0.12;
-  } else { // 脚跟随呼吸节拍轻颠（以踝、根高度表达）
-    const bounce = Math.pow(Math.max(0, Math.sin(u * Math.PI * 6)), 2);
+  } else { // 脚跟随呼吸节拍七颠（以踝、根高度表达）
+    const bounce = Math.pow(Math.sin(u * Math.PI * 7), 2);
     p.rootHeight += bounce * 0.055;
-    p.joints.ankleL.x = p.joints.ankleR.x = -bounce * 0.22;
     p.joints.shoulderL = { x: -0.08, y: 0, z: 0.12 };
     p.joints.shoulderR = { x: -0.08, y: 0, z: -0.12 };
     p.joints.elbowL = p.joints.elbowR = elbowFlex(0.15);
   }
+  applyBaduanjinFootwork(index, u, p);
   return p;
 }
 
@@ -366,8 +515,7 @@ export class JumpBehavior {
       h = base - crouchAmt + smoothstep(u) * 0.04;
     } else if (this.t < this.crouch + this.push + this.air) {
       const ta = this.t - this.crouch - this.push;
-      const g = 9.8;
-      h = base + 0.04 + this.launchV * ta - 0.5 * g * ta * ta;
+      h = base + 0.04 + this.launchV * ta - 0.5 * GRAVITY * ta * ta;
       crouchAmt = 0.02;
     } else if (this.t < this.total) {
       const u = (this.t - this.crouch - this.push - this.air) / this.land;
@@ -392,6 +540,8 @@ export class JumpBehavior {
       p.joints.kneeR = { x: KNEE_SIGN * 1.0, y: 0, z: 0 };
       p.joints.ankleL = { x: 0.3, y: 0, z: 0 };
       p.joints.ankleR = { x: 0.3, y: 0, z: 0 };
+      p.feet.L = { x: DIM.hipWidth * 0.5, z: 0, contact: false };
+      p.feet.R = { x: -DIM.hipWidth * 0.5, z: 0, contact: false };
     } else {
       const footY = -(base - crouchAmt - DIM.pelvisH * 0.5 - DIM.footH * 0.5);
       footIK(p, 'L', 0, footY);

@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const VERSION = '20260619-model-v3';
+const VERSION = '20260620-baduanjin-steps-v2';
 const browserFiles = [
   'index.html', 'src/main.js', 'src/scene.js', 'src/robot/RobotBuilder.js',
-  'src/control/MotionController.js', 'src/control/behaviors.js', 'src/ui/HUD.js',
+  'src/control/MotionController.js', 'src/control/BalanceController.js',
+  'src/control/behaviors.js', 'src/ui/HUD.js',
 ];
 
 test('浏览器本地模块使用统一版本号，避免新旧 ES Module 缓存混载', async () => {

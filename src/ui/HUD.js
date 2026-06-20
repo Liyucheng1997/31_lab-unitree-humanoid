@@ -1,5 +1,5 @@
 // HUD：绑定动作按钮、滑块、显示/键盘控制
-import { ClassicalMusic } from '../audio/ClassicalMusic.js?v=20260619-model-v3';
+import { ClassicalMusic } from '../audio/ClassicalMusic.js?v=20260620-baduanjin-steps-v2';
 
 const BEHAVIORS = [
   { id: 'idle', label: '站立' },
@@ -93,6 +93,23 @@ export function initHUD(controller, view, camera, controls) {
     musicBtn.textContent = music.muted ? '音乐：关' : '音乐：开';
   });
   musicBtn.classList.add('active');
+
+  // ---- 重力平衡闭环 / 外部扰动测试 ----
+  const balanceBtn = document.getElementById('toggle-balance');
+  const pushBtn = document.getElementById('push-test');
+  balanceBtn.classList.add('active');
+  balanceBtn.addEventListener('click', () => {
+    controller.balance.enabled = !controller.balance.enabled;
+    if (controller.balance.enabled) controller.balance.reset();
+    balanceBtn.classList.toggle('active', controller.balance.enabled);
+    balanceBtn.textContent = controller.balance.enabled ? '平衡：开' : '平衡：关';
+  });
+  let pushDirection = 1;
+  pushBtn.addEventListener('click', () => {
+    // 约 0.25 m/s 的横向速度突变，足以看到闭环恢复但不会刻意推倒机器人。
+    controller.applyPush(8.5 * pushDirection, 3.5);
+    pushDirection *= -1;
+  });
 
   // ---- 键盘 ----
   const keys = new Set();

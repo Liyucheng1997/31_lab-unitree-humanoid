@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { dampEuler, damp, clamp } from './MathUtils.js?v=20260619-model-v3';
-import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260619-model-v3';
+import { dampEuler, damp, clamp } from './MathUtils.js?v=20260620-baduanjin-steps-v2';
+import { BalanceController } from './BalanceController.js?v=20260620-baduanjin-steps-v2';
+import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260620-baduanjin-steps-v2';
 import {
   IdleBehavior, WalkBehavior, DanceBehavior, WaveBehavior, JumpBehavior, BaduanjinBehavior,
-} from './behaviors.js?v=20260619-model-v3';
+} from './behaviors.js?v=20260620-baduanjin-steps-v2';
 
 // 关节的"静止"姿态（无目标时回归）
 const REST = {
@@ -34,6 +35,11 @@ export class MotionController {
     this.rootY = baseRootHeight();
     this.rootPitch = 0;
     this.rootRoll = 0;
+    this.balance = new BalanceController({
+      footWidth: DIM.footWidth,
+      footLength: DIM.footLen,
+    });
+    this.balanceState = this.balance.output();
 
     // 关节平滑时间常数（s）—越小响应越快。不同部位可不同。
     this.tau = {
@@ -71,6 +77,10 @@ export class MotionController {
 
   get behaviorName() { return this.current.name; }
 
+  applyPush(xImpulse = 0, zImpulse = 0) {
+    this.balance.applyImpulse(xImpulse, zImpulse);
+  }
+
   tauFor(name) {
     if (name.startsWith('hip') || name.startsWith('knee') || name.startsWith('ankle'))
       return this.tau.leg;
@@ -86,6 +96,22 @@ export class MotionController {
     // 行为产出目标姿态
     const ctx = { t: this.t, dt, dim: DIM, params: this.params };
     const pose = this.current.update(ctx);
+    this.balanceState = this.balance.step(pose, dt);
+
+    // Closed-loop ankle strategy plus a smaller hip counter-action.
+    const feedback = this.balanceState;
+    for (const side of ['L', 'R']) {
+      const ankle = pose.joints[`ankle${side}`];
+      if (ankle) {
+        ankle.x += feedback.anklePitch;
+        ankle.z += feedback.ankleRoll;
+      }
+      const hip = pose.joints[`hip${side}`];
+      if (hip) {
+        hip.x -= feedback.anklePitch * 0.35;
+        hip.z -= feedback.ankleRoll * 0.35;
+      }
+    }
 
     // ---- 关节平滑 ----
     for (const name of Object.keys(this.joints)) {
@@ -117,8 +143,10 @@ export class MotionController {
     const hTau = this.current.name === 'jump' ? 0.012 : 0.06;
     this.rootY = damp(this.rootY, pose.rootHeight, hTau, dt);
     this.rig.root.position.y = this.rootY;
-    this.rootPitch = damp(this.rootPitch, pose.rootPitch || 0, 0.1, dt);
-    this.rootRoll = damp(this.rootRoll, pose.rootRoll || 0, 0.1, dt);
+    const physicalPitch = clamp(feedback.bodyPitch, -0.32, 0.32);
+    const physicalRoll = clamp(feedback.bodyRoll, -0.32, 0.32);
+    this.rootPitch = damp(this.rootPitch, (pose.rootPitch || 0) + physicalPitch, 0.06, dt);
+    this.rootRoll = damp(this.rootRoll, (pose.rootRoll || 0) + physicalRoll, 0.06, dt);
     // 把 pitch/roll 叠加到根（保留 yaw）
     this.rig.root.rotation.x = this.rootPitch;
     this.rig.root.rotation.z = this.rootRoll;
