@@ -1,4 +1,4 @@
-import { clamp } from './MathUtils.js?v=20260620-baduanjin-steps-v2';
+import { clamp } from './MathUtils.js?v=20260708-showtime-v3';
 
 // SI units. The controller uses a linear inverted-pendulum model (LIPM):
 //   comAcceleration = gravity / comHeight * (com - zmp)

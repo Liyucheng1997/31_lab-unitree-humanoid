@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const VERSION = '20260620-baduanjin-steps-v2';
+const VERSION = '20260708-showtime-v3';
 const browserFiles = [
   'index.html', 'src/main.js', 'src/scene.js', 'src/robot/RobotBuilder.js',
   'src/control/MotionController.js', 'src/control/BalanceController.js',

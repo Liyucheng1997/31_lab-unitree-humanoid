@@ -1,11 +1,12 @@
 import * as THREE from 'three';
-import { DIM, FORWARD_Z } from './skeleton.js?v=20260620-baduanjin-steps-v2';
+import { DIM, FORWARD_Z } from './skeleton.js?v=20260708-showtime-v3';
 
 // 高级材质：陶瓷白装甲 / 阳极黑结构 / 拉丝金属 / 冰蓝状态灯
 const MAT = {
   shell: new THREE.MeshPhysicalMaterial({
-    color: 0xf3f5f6, roughness: 0.24, metalness: 0.08,
-    clearcoat: 0.75, clearcoatRoughness: 0.2,
+    // roughness/clearcoat 与 Bloom 阈值 3.2 配套调校：装甲高光峰值需低于阈值
+    color: 0xf3f5f6, roughness: 0.33, metalness: 0.08,
+    clearcoat: 0.45, clearcoatRoughness: 0.2,
   }),
   shellShade: new THREE.MeshPhysicalMaterial({
     color: 0xcfd4d7, roughness: 0.3, metalness: 0.12, clearcoat: 0.45,
@@ -24,9 +25,24 @@ const MAT = {
     clearcoat: 1, clearcoatRoughness: 0.08,
   }),
   light: new THREE.MeshStandardMaterial({
-    color: 0xbff7ff, emissive: 0x35d9ff, emissiveIntensity: 3.2,
+    color: 0xbff7ff, emissive: 0x35d9ff, emissiveIntensity: 4.4,
     roughness: 0.16, metalness: 0.12,
   }),
+  // 低亮度指示灯：可见发光但不参与 Bloom（阈值 3.2 以下）。
+  lightSoft: new THREE.MeshStandardMaterial({
+    color: 0xbff7ff, emissive: 0x35d9ff, emissiveIntensity: 1.8,
+    roughness: 0.16, metalness: 0.12,
+  }),
+};
+
+// 表情预设：不同行为切换不同的眼睛/嘴部灯光气质。
+const EMOTIONS = {
+  calm:  { color: 0x35d9ff, intensity: 4.5 },   // 待机：冰蓝
+  focus: { color: 0x4f8dff, intensity: 5.0 },   // 行走：深蓝
+  power: { color: 0xffa03b, intensity: 6.2 },   // 跑步/跳跃：琥珀
+  fury:  { color: 0xff3b55, intensity: 7.0 },   // 功夫：赤红
+  zen:   { color: 0x34d399, intensity: 3.6 },   // 八段锦：翠绿
+  joy:   { color: 0xff4fd8, intensity: 5.6 },   // 跳舞：霓虹粉
 };
 
 function finish(mesh) {
@@ -54,10 +70,6 @@ function sphere(x, y = x, z = x, mat = MAT.frame, segments = 24) {
 function cylinder(rTop, rBottom, height, mat = MAT.frame, radial = 24) {
   return finish(new THREE.Mesh(
     new THREE.CylinderGeometry(rTop, rBottom, height, radial, 1, false), mat));
-}
-
-function capsule(radius, length, mat = MAT.shell, radial = 16) {
-  return finish(new THREE.Mesh(new THREE.CapsuleGeometry(radius, length, 8, radial), mat));
 }
 
 function ring(major, tube, mat = MAT.metal) {
@@ -89,7 +101,80 @@ function bolt(parent, x, y, z, scale = 1) {
   return b;
 }
 
-function buildHead(neck, joints) {
+// ------------------------------------------------------------------
+// 面部灯光系统：发光眼睛 + 嘴部灯带。可切换表情、眨眼与闪光。
+// ------------------------------------------------------------------
+function buildFace(neck, headY) {
+  const eyeMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0f14, emissive: 0x35d9ff, emissiveIntensity: 4.5,
+    roughness: 0.2, metalness: 0.1,
+  });
+  const mouthMat = eyeMat.clone();
+  mouthMat.emissiveIntensity = 2.0;
+
+  const eyes = [];
+  for (const x of [-0.045, 0.045]) {
+    const eye = add(neck, sphere(0.011, 0.014, 0.006, eyeMat, 16),
+      x, headY + 0.004, 0.093 * FORWARD_Z);
+    add(neck, ring(0.014, 0.003, MAT.metal), x, headY + 0.004, 0.086 * FORWARD_Z)
+      .rotation.x = 0;
+    eyes.push(eye);
+  }
+  const mouth = add(neck, box(0.052, 0.006, 0.008, mouthMat),
+    0, headY - 0.062, 0.085 * FORWARD_Z);
+
+  const face = {
+    eyes, mouth, eyeMat, mouthMat,
+    emotion: 'calm',
+    _color: new THREE.Color(EMOTIONS.calm.color),
+    _targetColor: new THREE.Color(EMOTIONS.calm.color),
+    _intensity: EMOTIONS.calm.intensity,
+    _targetIntensity: EMOTIONS.calm.intensity,
+    _flash: 0,
+    _blinkTimer: 2.5,
+    _blinkPhase: 0,
+
+    setEmotion(name) {
+      const preset = EMOTIONS[name];
+      if (!preset || this.emotion === name) return;
+      this.emotion = name;
+      this._targetColor.setHex(preset.color);
+      this._targetIntensity = preset.intensity;
+    },
+
+    /** 短促闪光：动作发力瞬间调用。 */
+    flash(strength = 2.2) { this._flash = Math.max(this._flash, strength); },
+
+    update(dt) {
+      const k = 1 - Math.exp(-dt / 0.25);
+      this._color.lerp(this._targetColor, k);
+      this._intensity += (this._targetIntensity - this._intensity) * k;
+      this._flash = Math.max(0, this._flash - dt * 6);
+
+      const glow = this._intensity * (1 + this._flash);
+      this.eyeMat.emissive.copy(this._color);
+      this.eyeMat.emissiveIntensity = glow;
+      this.mouthMat.emissive.copy(this._color);
+      this.mouthMat.emissiveIntensity = glow * 0.6;
+
+      // 随机眨眼：眼睛竖向压扁再弹回，让机器人显得"活着"。
+      if (this._blinkPhase > 0) {
+        this._blinkPhase = Math.max(0, this._blinkPhase - dt / 0.13);
+        const openness = 0.12 + 0.88 * Math.abs(1 - this._blinkPhase * 2);
+        for (const eye of this.eyes) eye.scale.y = 0.014 * openness;
+      } else {
+        this._blinkTimer -= dt;
+        if (this._blinkTimer <= 0) {
+          this._blinkPhase = 1;
+          this._blinkTimer = 2 + Math.random() * 3.5;
+        }
+      }
+    },
+  };
+  return face;
+}
+
+function buildHead(neck, joints, rig) {
   joints.head = neck;
   add(neck, cylinder(0.041, 0.047, DIM.neckH, MAT.frame), 0, DIM.neckH * 0.15, 0);
   add(neck, ring(0.043, 0.008, MAT.metal), 0, DIM.neckH * 0.22, 0);
@@ -103,12 +188,12 @@ function buildHead(neck, joints) {
   add(neck, armorPlate(0.11, 0.14, 0.028, 0.03, MAT.shellShade, 0.004),
     0, headY + 0.082, 0.012);
 
-  // 视觉传感器与下颌灯带。
-  for (const x of [-0.045, 0.045]) {
-    add(neck, sphere(0.009, 0.009, 0.005, MAT.light, 16), x, headY + 0.004, 0.093 * FORWARD_Z);
-    add(neck, ring(0.012, 0.003, MAT.metal), x, headY + 0.004, 0.086 * FORWARD_Z).rotation.x = 0;
+  rig.face = buildFace(neck, headY);
+
+  // 侧部听觉传感器指示灯。
+  for (const s of [-1, 1]) {
+    add(neck, sphere(0.006, 0.016, 0.016, MAT.light, 12), s * 0.085, headY, -0.008);
   }
-  add(neck, box(0.075, 0.008, 0.009, MAT.light), 0, headY - 0.065, 0.084 * FORWARD_Z);
   add(neck, armorPlate(0.09, 0.065, 0.045, 0.04, MAT.frame, 0.004),
     0, headY - 0.087, 0.018);
 }
@@ -134,6 +219,12 @@ function buildTorso(root, waist, joints) {
   add(waist,
     armorPlate(DIM.torsoW * 0.92, DIM.torsoW * 0.68, DIM.torsoH * 0.7, 0.05, MAT.shellShade, 0.013),
     0, DIM.torsoH * 0.57, -0.077 * FORWARD_Z);
+
+  // 背部散热脊线灯带：从背面看也有科技细节。
+  for (const x of [-0.045, 0.045]) {
+    add(waist, box(0.008, DIM.torsoH * 0.42, 0.006, MAT.light),
+      x, DIM.torsoH * 0.58, -0.106 * FORWARD_Z);
+  }
 
   // 胸甲中央脊线、品牌徽记和状态灯。
   add(waist, armorPlate(0.026, 0.016, 0.17, 0.013, MAT.shellShade, 0.002),
@@ -163,7 +254,59 @@ function buildTorso(root, waist, joints) {
   }
 }
 
-function buildArm(waist, side, joints) {
+// ------------------------------------------------------------------
+// 五指机械手：手腕独立关节 + 双段可弯曲手指（可握拳）。
+// ------------------------------------------------------------------
+function buildHand(wrist, side) {
+  const s = side === 'L' ? 1 : -1;
+
+  add(wrist, ring(0.028, 0.007, MAT.metal), 0, 0.016, 0);
+  add(wrist, sphere(0.036, 0.05, 0.027, MAT.shell), 0, -0.025, 0.004);
+  add(wrist, armorPlate(0.046, 0.038, 0.062, 0.022, MAT.frame, 0.004),
+    0, -0.025, 0.023 * FORWARD_Z);
+  add(wrist, sphere(0.007, 0.007, 0.004, MAT.light, 10), 0, -0.02, 0.036 * FORWARD_Z);
+
+  const fingers = [];
+  for (let i = 0; i < 5; i++) {
+    const fingerX = (i - 2) * 0.011;
+    const fingerLen = i === 0 || i === 4 ? 0.041 : 0.052;
+    const proximalLen = fingerLen * 0.55;
+    const distalLen = fingerLen * 0.5;
+
+    // 近节：从掌指关节出发
+    const knuckle = new THREE.Group();
+    knuckle.position.set(fingerX, -0.058, 0.005);
+    knuckle.rotation.z = s * (i - 2) * 0.025;
+    wrist.add(knuckle);
+    add(knuckle, sphere(0.005, 0.005, 0.005, MAT.rubber, 10));
+    add(knuckle, cylinder(0.0036, 0.0042, proximalLen, MAT.metal, 8),
+      0, -proximalLen * 0.5, 0);
+
+    // 远节：可再弯曲一段
+    const mid = new THREE.Group();
+    mid.position.set(0, -proximalLen, 0);
+    knuckle.add(mid);
+    add(mid, sphere(0.004, 0.004, 0.004, MAT.rubber, 8));
+    add(mid, cylinder(0.003, 0.0036, distalLen, MAT.metal, 8),
+      0, -distalLen * 0.5, 0);
+
+    fingers.push({ knuckle, mid, thumb: i === 0 });
+  }
+
+  // curl: 0 = 张开，1 = 握拳。手指朝掌心(+Z 前方)卷曲。
+  return {
+    fingers,
+    setCurl(t) {
+      for (const finger of this.fingers) {
+        const amount = finger.thumb ? t * 0.9 : t;
+        finger.knuckle.rotation.x = amount * 1.25 * FORWARD_Z;
+        finger.mid.rotation.x = amount * 1.35 * FORWARD_Z;
+      }
+    },
+  };
+}
+
+function buildArm(waist, side, joints, rig) {
   const s = side === 'L' ? 1 : -1;
   const shoulder = new THREE.Group();
   shoulder.name = `shoulder${side}`;
@@ -203,21 +346,13 @@ function buildArm(waist, side, joints) {
   add(elbow, armorPlate(0.044, 0.036, DIM.foreArm * 0.42, 0.014, MAT.frame, 0.003),
     -s * 0.037, -DIM.foreArm * 0.48, 0.022 * FORWARD_Z).rotation.y = s * 0.45;
 
-  // 腕部万向环和五指机械手。
-  const handY = -DIM.foreArm - 0.018;
-  add(elbow, ring(0.028, 0.007, MAT.metal), 0, handY + 0.016, 0);
-  add(elbow, sphere(0.036, 0.05, 0.027, MAT.shell), 0, handY - 0.025, 0.004);
-  add(elbow, armorPlate(0.046, 0.038, 0.062, 0.022, MAT.frame, 0.004),
-    0, handY - 0.025, 0.023 * FORWARD_Z);
-  for (let i = 0; i < 5; i++) {
-    const fingerX = (i - 2) * 0.011;
-    const fingerLen = i === 0 || i === 4 ? 0.041 : 0.052;
-    const finger = add(elbow, cylinder(0.0034, 0.0042, fingerLen, MAT.metal, 8),
-      fingerX, handY - 0.072 - fingerLen * 0.5, 0.005);
-    finger.rotation.z = s * (i - 2) * 0.025;
-    add(elbow, sphere(0.005, 0.005, 0.005, MAT.rubber, 10),
-      fingerX, handY - 0.071, 0.005);
-  }
+  // 手腕独立关节：挥手、抱拳、推掌都由它完成。
+  const wrist = new THREE.Group();
+  wrist.name = `wrist${side}`;
+  wrist.position.set(0, -DIM.foreArm - 0.018, 0);
+  elbow.add(wrist);
+  joints[`wrist${side}`] = wrist;
+  rig.hands[side] = buildHand(wrist, side);
 }
 
 function buildLeg(root, side, joints) {
@@ -230,7 +365,7 @@ function buildLeg(root, side, joints) {
 
   add(hip, sphere(0.061, 0.061, 0.061, MAT.rubber));
   add(hip, ring(0.05, 0.009, MAT.metal), 0, 0, 0).rotation.z = Math.PI / 2;
-  add(hip, sphere(0.023, 0.023, 0.016, MAT.light), -s * 0.052, 0, 0);
+  add(hip, sphere(0.023, 0.023, 0.016, MAT.lightSoft), -s * 0.052, 0, 0);
 
   // 大腿内骨与流线型前/外侧装甲。
   add(hip, cylinder(0.042, 0.05, DIM.thigh * 0.82, MAT.frame), 0, -DIM.thigh * 0.5, 0);
@@ -289,13 +424,18 @@ function buildLeg(root, side, joints) {
 }
 
 /**
- * 构建高细节人形机器人。运动控制接口保持 { root, joints } 不变。
- * 所有新增装甲均挂在原有枢轴下，因此现有 IK、行为和八段锦可直接驱动。
+ * 构建高细节人形机器人。
+ * 返回 { root, joints, face, hands }：
+ *   joints 在原有基础上新增 wristL / wristR；
+ *   face 提供 setEmotion / flash / update；
+ *   hands.L/.R 提供 setCurl(0..1) 张手→握拳。
  */
 export function buildRobot() {
   const joints = {};
+  const rig = { root: null, joints, face: null, hands: {} };
   const root = new THREE.Group();
   root.name = 'root';
+  rig.root = root;
 
   const waist = new THREE.Group();
   waist.name = 'waist';
@@ -308,10 +448,10 @@ export function buildRobot() {
   neck.name = 'head';
   neck.position.set(0, DIM.torsoH + DIM.neckH * 0.5, 0);
   waist.add(neck);
-  buildHead(neck, joints);
+  buildHead(neck, joints, rig);
 
-  buildArm(waist, 'L', joints);
-  buildArm(waist, 'R', joints);
+  buildArm(waist, 'L', joints, rig);
+  buildArm(waist, 'R', joints, rig);
   buildLeg(root, 'L', joints);
   buildLeg(root, 'R', joints);
 
@@ -321,5 +461,5 @@ export function buildRobot() {
       object.receiveShadow = true;
     }
   });
-  return { root, joints };
+  return rig;
 }

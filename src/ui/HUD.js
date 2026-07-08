@@ -1,13 +1,16 @@
 // HUD：绑定动作按钮、滑块、显示/键盘控制
-import { ClassicalMusic } from '../audio/ClassicalMusic.js?v=20260620-baduanjin-steps-v2';
+import { ClassicalMusic } from '../audio/ClassicalMusic.js?v=20260708-showtime-v3';
 
 const BEHAVIORS = [
   { id: 'idle', label: '站立' },
   { id: 'walk', label: '走路' },
+  { id: 'run', label: '跑步' },
   { id: 'dance', label: '跳舞' },
   { id: 'baduanjin', label: '八段锦' },
+  { id: 'kungfu', label: '功夫' },
   { id: 'wave', label: '挥手' },
   { id: 'jump', label: '跳跃' },
+  { id: 'backflip', label: '后空翻' },
 ];
 
 export function initHUD(controller, view, camera, controls) {
@@ -27,11 +30,7 @@ export function initHUD(controller, view, camera, controls) {
     controller.setBehavior(id);
     if (id === 'baduanjin') music.start().catch((error) => console.warn('背景音乐启动失败：', error));
     else music.stop();
-    for (const k of Object.keys(buttons)) buttons[k].classList.toggle('active', k === id);
-    // jump 完成后会自动回 idle，这里短暂高亮
-    if (id === 'jump') {
-      setTimeout(() => { highlight(controller.behaviorName); }, 1400);
-    }
+    highlight(id);
   }
   function highlight(name) {
     for (const k of Object.keys(buttons)) buttons[k].classList.toggle('active', k === name);
@@ -117,20 +116,34 @@ export function initHUD(controller, view, camera, controls) {
     const k = e.key.toLowerCase();
     keys.add(k);
     if (k === ' ') { e.preventDefault(); selectBehavior('jump'); }
+    if (k === 'f') selectBehavior('backflip');
+    if (k === 'k') selectBehavior('kungfu');
   });
   window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
 
-  // 每帧由 main 调用：把键盘转成移动输入，并自动切到 walk
+  let lastBehavior = controller.behaviorName;
+
+  // 每帧由 main 调用：把键盘转成移动输入，并自动切换行为
   function pollInput() {
     const fwd = (keys.has('w') ? 1 : 0) - (keys.has('s') ? 1 : 0);
     const turn = (keys.has('a') ? 1 : 0) - (keys.has('d') ? 1 : 0);
     controller.moveInput.fwd = fwd;
     controller.moveInput.turn = turn;
-    if (fwd > 0 && controller.behaviorName === 'idle') {
+
+    const name = controller.behaviorName;
+    if (fwd !== 0 && name === 'idle') {
+      // W 前进 / S 倒退都自动进入走路；按住 Shift 直接冲刺
+      selectBehavior(keys.has('shift') && fwd > 0 ? 'run' : 'walk');
+    } else if (keys.has('shift') && fwd > 0 && name === 'walk') {
+      selectBehavior('run');
+    } else if (!keys.has('shift') && name === 'run' && fwd > 0) {
       selectBehavior('walk');
-    } else if (fwd <= 0 && controller.behaviorName === 'walk' &&
-               !keys.has('w')) {
-      // 松开 W 时停下（仅当是键盘触发的走路）
+    }
+
+    // 一次性动作（跳跃/空翻/功夫）结束后自动回 idle，这里同步按钮高亮。
+    if (controller.behaviorName !== lastBehavior) {
+      lastBehavior = controller.behaviorName;
+      highlight(lastBehavior);
     }
   }
 

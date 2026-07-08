@@ -1,18 +1,19 @@
 import * as THREE from 'three';
-import { createScene } from './scene.js?v=20260620-baduanjin-steps-v2';
-import { buildRobot } from './robot/RobotBuilder.js?v=20260620-baduanjin-steps-v2';
-import { MotionController } from './control/MotionController.js?v=20260620-baduanjin-steps-v2';
-import { initHUD } from './ui/HUD.js?v=20260620-baduanjin-steps-v2';
-import { BADUANJIN_FORMS } from './control/behaviors.js?v=20260620-baduanjin-steps-v2';
+import { createScene } from './scene.js?v=20260708-showtime-v3';
+import { buildRobot } from './robot/RobotBuilder.js?v=20260708-showtime-v3';
+import { MotionController } from './control/MotionController.js?v=20260708-showtime-v3';
+import { initHUD } from './ui/HUD.js?v=20260708-showtime-v3';
+import { BADUANJIN_FORMS } from './control/behaviors.js?v=20260708-showtime-v3';
 
 const container = document.getElementById('app');
-const { scene, camera, renderer, controls } = createScene(container);
+const { scene, camera, renderer, controls, composer, updateAmbience } = createScene(container);
 
 // ---- 机器人 ----
 const rig = buildRobot();
 scene.add(rig.root);
 
 const controller = new MotionController(rig);
+controller.lookTarget = camera.position; // 待机时头部注视镜头
 
 // ---- 平衡诊断可视化：支撑多边形、COM 投影、ZMP ----
 const balanceViz = new THREE.Group();
@@ -103,6 +104,7 @@ function animate() {
   hud.pollInput();
   controller.update(dt);
   updateBalanceViz();
+  updateAmbience(clock.elapsedTime);
 
   // 骨架显隐
   jointDots.visible = view.showSkeleton;
@@ -121,7 +123,7 @@ function animate() {
   lastFollow = view.followCam;
 
   controls.update();
-  renderer.render(scene, camera);
+  composer.render();
 
   // 读数
   const form = controller.behaviorName === 'baduanjin'
@@ -129,7 +131,10 @@ function animate() {
     : '';
   const balance = controller.balanceState;
   const margin = Number.isFinite(balance.margin) ? `${(balance.margin * 100).toFixed(1)}cm` : '腾空';
-  const statusLabel = { stable: '稳定', warning: '临界', unstable: '失稳', airborne: '腾空' }[balance.status];
+  // 跑步与跳跃类动作本质是动态步态，捕获点出静稳域是正常现象
+  const dynamicGait = ['run', 'jump', 'backflip'].includes(controller.behaviorName);
+  const statusLabel = balance.status === 'unstable' && dynamicGait ? '动态'
+    : { stable: '稳定', warning: '临界', unstable: '失稳', airborne: '腾空' }[balance.status];
   readout.dataset.stability = balance.status;
   readout.innerHTML =
     `行为 <b>${controller.behaviorName}</b>${form} · ` +
@@ -141,4 +146,4 @@ function animate() {
 animate();
 
 // 暴露到全局便于调试
-window.__robot = { rig, controller, scene, camera, view, controls, hud };
+window.__robot = { rig, controller, scene, camera, view, controls, hud, renderer, composer, updateBalanceViz };
