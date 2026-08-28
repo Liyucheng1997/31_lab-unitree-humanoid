@@ -2,7 +2,7 @@
 
 一个用 Three.js 构建的高细节人形机器人，重点在**控制系统**：基于 IK 的步态、行为状态机、重力感知的 LIPM 重心动力学、ZMP 闭环平衡和真实执行器伺服。v2.x 加入 HDR Bloom 渲染管线、可变表情的面部灯光、手腕与铰接五指、跑步腾空步态、后空翻和功夫连招，机器人在待机时还会注视镜头、眨眼。
 
-**v3.0 工业化升级**（架构对标开源实机项目 [Roboparty roboto_origin](https://github.com/Roboparty/roboto_origin)）：
+**v2.3 工业化升级**（架构对标开源实机项目 [Roboparty roboto_origin](https://github.com/Roboparty/roboto_origin)）：
 
 | 本项目模块 | roboto_origin 对应 | 内容 |
 |---|---|---|
@@ -90,7 +90,7 @@ src/
 ### 控制系统四层（对齐实机分层）
 
 1. **骨骼层**：`Object3D` 层级枢轴（pelvis → waist → 头/肩/髋 → 肘/膝 → 腕/踝 → 指）。
-2. **执行器层（v3.0 新增）**：`description.js` 定义 31 个单轴关节（命名与 rpo.urdf 对齐：`left_thigh_pitch_joint`、`torso_joint`…），每个关节由 `Actuators.js` 以 500Hz 固定步长仿真电机伺服：`τ = kp·(q*−q) − kd·q̇` → 力矩饱和（髋/膝/腰 120N·m，踝/肩/肘 27N·m，借鉴 rpo 电机规格）→ 驱动器速度限幅 → 机械硬限位。行为层不再直接写关节角，只下发目标；kp/kd 由反射惯量与期望闭环频率解析（`kp=Iω²`）。
+2. **执行器层（v2.3 新增）**：`description.js` 定义 31 个单轴关节（命名与 rpo.urdf 对齐：`left_thigh_pitch_joint`、`torso_joint`…），每个关节由 `Actuators.js` 以 500Hz 固定步长仿真电机伺服：`τ = kp·(q*−q) − kd·q̇` → 力矩饱和（髋/膝/腰 120N·m，踝/肩/肘 27N·m，借鉴 rpo 电机规格）→ 驱动器速度限幅 → 机械硬限位。行为层不再直接写关节角，只下发目标；kp/kd 由反射惯量与期望闭环频率解析（`kp=Iω²`）。
 3. **控制层（重点）**
    - **MotionController**：行为状态机产出目标姿态，叠加平衡反馈后交给执行器层。空翻等快动作可通过 `pitchTau/heightTau` 覆盖根姿态平滑常数；根 pitch 做角度环绕归一，±2π 旋转结束后不会反向回卷。
    - **两骨 IK**（`solveLegIK`）：由"脚的目标位置"用余弦定理反解髋/膝角，是步态的基础。
