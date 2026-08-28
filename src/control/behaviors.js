@@ -16,9 +16,9 @@
 //
 // ctx = { t, dt, dim, params, move }  params 来自 HUD，move 来自键盘
 
-import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260708-showtime-v3';
-import { solveLegIK, clamp, lerp, smoothstep, TAU } from './MathUtils.js?v=20260708-showtime-v3';
-import { GRAVITY } from './BalanceController.js?v=20260708-showtime-v3';
+import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260828-rpo-v1';
+import { solveLegIK, clamp, lerp, smoothstep, TAU } from './MathUtils.js?v=20260828-rpo-v1';
+import { GRAVITY } from './BalanceController.js?v=20260828-rpo-v1';
 
 export const KNEE_SIGN = FORWARD_Z; // 膝盖始终朝视觉正面弯曲
 

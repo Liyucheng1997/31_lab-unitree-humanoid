@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DIM, FORWARD_Z } from './skeleton.js?v=20260708-showtime-v3';
+import { DIM, FORWARD_Z } from './skeleton.js?v=20260828-rpo-v1';
 
 // 高级材质：陶瓷白装甲 / 阳极黑结构 / 拉丝金属 / 冰蓝状态灯
 const MAT = {

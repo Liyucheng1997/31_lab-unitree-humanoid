@@ -1,11 +1,12 @@
 import * as THREE from 'three';
-import { dampEuler, damp, clamp } from './MathUtils.js?v=20260708-showtime-v3';
-import { BalanceController } from './BalanceController.js?v=20260708-showtime-v3';
-import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260708-showtime-v3';
+import { damp, clamp } from './MathUtils.js?v=20260828-rpo-v1';
+import { BalanceController } from './BalanceController.js?v=20260828-rpo-v1';
+import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260828-rpo-v1';
+import { ActuatorLayer } from '../robot/Actuators.js?v=20260828-rpo-v1';
 import {
   IdleBehavior, WalkBehavior, RunBehavior, DanceBehavior, WaveBehavior,
   JumpBehavior, BackflipBehavior, KungfuBehavior, BaduanjinBehavior,
-} from './behaviors.js?v=20260708-showtime-v3';
+} from './behaviors.js?v=20260828-rpo-v1';
 
 // 关节的"静止"姿态（无目标时回归）
 const REST = {
@@ -36,11 +37,8 @@ export class MotionController {
     this.joints = rig.joints;
     this.t = 0;
 
-    // 每个关节的当前角缓存
-    this.cur = {};
-    for (const name of Object.keys(this.joints)) {
-      this.cur[name] = { x: 0, y: 0, z: 0 };
-    }
+    // 执行器伺服层：行为给目标角，电机 PD + 力矩/速度/限位约束产生真实运动。
+    this.actuators = new ActuatorLayer(this.joints);
 
     // 根运动状态
     this.yaw = 0;
@@ -157,14 +155,13 @@ export class MotionController {
       }
     }
 
-    // ---- 关节平滑 ----
+    // ---- 关节伺服：目标角 → 电机 PD → 力矩/速度饱和 → 机械限位 ----
+    const targets = {};
     for (const name of Object.keys(this.joints)) {
-      const tgt = pose.joints[name] || REST[name] || { x: 0, y: 0, z: 0 };
-      const tau = this.tauFor(name);
-      dampEuler(this.cur[name], tgt, tau, dt);
-      const j = this.joints[name];
-      j.rotation.set(this.cur[name].x, this.cur[name].y, this.cur[name].z);
+      targets[name] = pose.joints[name] || REST[name] || { x: 0, y: 0, z: 0 };
     }
+    this.actuators.setTargets(targets);
+    this.actuators.step(dt, targets, (name) => this.tauFor(name));
 
     // ---- 面部表情与手指 ----
     if (this.rig.face) {

@@ -2,11 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const VERSION = '20260708-showtime-v3';
+const VERSION = '20260828-rpo-v1';
 const browserFiles = [
   'index.html', 'src/main.js', 'src/scene.js', 'src/robot/RobotBuilder.js',
+  'src/robot/description.js', 'src/robot/Actuators.js', 'src/robot/urdfExport.js',
   'src/control/MotionController.js', 'src/control/BalanceController.js',
-  'src/control/behaviors.js', 'src/ui/HUD.js',
+  'src/control/behaviors.js', 'src/ui/HUD.js', 'src/ui/TrainPanel.js',
+  'src/rl/nn.js', 'src/rl/ppo.js', 'src/rl/BalanceEnv.js',
+  'src/rl/Trainer.js', 'src/rl/trainWorker.js', 'src/rl/PolicyBalancer.js',
 ];
 
 test('浏览器本地模块使用统一版本号，避免新旧 ES Module 缓存混载', async () => {

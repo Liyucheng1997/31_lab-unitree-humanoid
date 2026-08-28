@@ -127,6 +127,73 @@ canvas { display: block; }
 .com-dot { background: #fbbf24; }
 .zmp-dot { background: #38bdf8; }
 
+/* ---------- 强化学习面板 ---------- */
+#rl-curve {
+  width: 100%;
+  height: 56px;
+  margin-top: 8px;
+  background: rgba(8, 12, 18, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.rl-readout {
+  margin-top: 6px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  font-family: "Cascadia Code", "Consolas", monospace;
+}
+.rl-readout b { color: #34d399; font-weight: 600; }
+.rl-readout em { color: #fbbf24; font-style: normal; }
+
+/* ---------- 关节伺服遥测面板 ---------- */
+#joint-monitor {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  width: 236px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding: 12px 12px 10px;
+  background: var(--panel);
+  border: 1px solid rgba(120, 205, 255, 0.2);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: 10px;
+  z-index: 10;
+}
+.jm-title {
+  color: var(--accent);
+  letter-spacing: 1px;
+  font-size: 10.5px;
+  margin-bottom: 8px;
+}
+.jm-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1.5px 0;
+  color: var(--text-dim);
+}
+.jm-row.jm-hot { color: #fb7185; }
+.jm-name { flex: none; width: 92px; overflow: hidden; white-space: nowrap; }
+.jm-q { flex: none; width: 34px; text-align: right; color: var(--text); }
+.jm-bar {
+  flex: 1;
+  height: 5px;
+  background: rgba(120, 180, 255, 0.12);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.jm-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #34d399, #fbbf24 70%, #fb7185);
+  border-radius: 3px;
+}
+.jm-flag { flex: none; width: 14px; text-align: center; }
+
 #state-readout {
   position: fixed;
   bottom: 16px;

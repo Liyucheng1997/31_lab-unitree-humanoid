@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { createScene } from './scene.js?v=20260708-showtime-v3';
-import { buildRobot } from './robot/RobotBuilder.js?v=20260708-showtime-v3';
-import { MotionController } from './control/MotionController.js?v=20260708-showtime-v3';
-import { initHUD } from './ui/HUD.js?v=20260708-showtime-v3';
-import { BADUANJIN_FORMS } from './control/behaviors.js?v=20260708-showtime-v3';
+import { createScene } from './scene.js?v=20260828-rpo-v1';
+import { buildRobot } from './robot/RobotBuilder.js?v=20260828-rpo-v1';
+import { MotionController } from './control/MotionController.js?v=20260828-rpo-v1';
+import { initHUD } from './ui/HUD.js?v=20260828-rpo-v1';
+import { initTrainPanel } from './ui/TrainPanel.js?v=20260828-rpo-v1';
+import { BADUANJIN_FORMS } from './control/behaviors.js?v=20260828-rpo-v1';
 
 const container = document.getElementById('app');
 const { scene, camera, renderer, controls, composer, updateAmbience } = createScene(container);
@@ -88,6 +89,9 @@ const view = {
 // ---- HUD ----
 const hud = initHUD(controller, view, camera, controls);
 
+// ---- 强化学习训练面板（后台 Worker 训练 + PD/RL 切换部署）----
+const trainPanel = initTrainPanel(controller);
+
 // ---- 状态读数 ----
 const readout = document.getElementById('state-readout');
 
@@ -146,4 +150,4 @@ function animate() {
 animate();
 
 // 暴露到全局便于调试
-window.__robot = { rig, controller, scene, camera, view, controls, hud, renderer, composer, updateBalanceViz };
+window.__robot = { rig, controller, scene, camera, view, controls, hud, renderer, composer, updateBalanceViz, trainPanel };

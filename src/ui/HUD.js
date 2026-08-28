@@ -1,5 +1,6 @@
 // HUD：绑定动作按钮、滑块、显示/键盘控制
-import { ClassicalMusic } from '../audio/ClassicalMusic.js?v=20260708-showtime-v3';
+import { ClassicalMusic } from '../audio/ClassicalMusic.js?v=20260828-rpo-v1';
+import { downloadURDF } from '../robot/urdfExport.js?v=20260828-rpo-v1';
 
 const BEHAVIORS = [
   { id: 'idle', label: '站立' },
@@ -110,6 +111,39 @@ export function initHUD(controller, view, camera, controls) {
     pushDirection *= -1;
   });
 
+  // ---- 工程：URDF 导出 + 关节伺服监视 ----
+  document.getElementById('export-urdf').addEventListener('click', downloadURDF);
+  const jointBtn = document.getElementById('toggle-joints');
+  const jointPanel = document.getElementById('joint-monitor');
+  let showJoints = false;
+  let lastJointRender = 0;
+  jointBtn.addEventListener('click', () => {
+    showJoints = !showJoints;
+    jointPanel.hidden = !showJoints;
+    jointBtn.classList.toggle('active', showJoints);
+  });
+
+  function renderJointMonitor() {
+    if (!showJoints || !controller.actuators) return;
+    const now = performance.now();
+    if (now - lastJointRender < 150) return;   // 6-7Hz 刷新足够
+    lastJointRender = now;
+    const rows = controller.actuators.telemetry().map((t) => {
+      const load = Math.min(1, Math.abs(t.torque) / t.effort);
+      const deg = (t.q * 180 / Math.PI).toFixed(0).padStart(4);
+      const name = t.name.replace('_joint', '')
+        .replace('left_', 'L·').replace('right_', 'R·');
+      const flag = t.atLimit ? '⛔' : t.saturated ? '⚠' : '';
+      return `<div class="jm-row${load > 0.85 ? ' jm-hot' : ''}">` +
+        `<span class="jm-name">${name}</span>` +
+        `<span class="jm-q">${deg}°</span>` +
+        `<span class="jm-bar"><i style="width:${(load * 100).toFixed(0)}%"></i></span>` +
+        `<span class="jm-flag">${flag}</span></div>`;
+    });
+    jointPanel.innerHTML =
+      `<div class="jm-title">关节伺服遥测 · 力矩/额定</div>${rows.join('')}`;
+  }
+
   // ---- 键盘 ----
   const keys = new Set();
   window.addEventListener('keydown', (e) => {
@@ -145,6 +179,8 @@ export function initHUD(controller, view, camera, controls) {
       lastBehavior = controller.behaviorName;
       highlight(lastBehavior);
     }
+
+    renderJointMonitor();
   }
 
   return { pollInput, highlight, music };

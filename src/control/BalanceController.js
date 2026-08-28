@@ -1,4 +1,4 @@
-import { clamp } from './MathUtils.js?v=20260708-showtime-v3';
+import { clamp } from './MathUtils.js?v=20260828-rpo-v1';
 
 // SI units. The controller uses a linear inverted-pendulum model (LIPM):
 //   comAcceleration = gravity / comHeight * (com - zmp)
@@ -113,6 +113,9 @@ export class BalanceController {
   constructor(options = {}) {
     this.config = { ...DEFAULTS, ...options };
     this.enabled = true;
+    // RL 部署钩子：设置后每步回调 (this) => {x,z} 直接给出 ZMP 指令，
+    // 替代内置 PD 反解（见 rl/PolicyBalancer.js）。null 时走原 PD 逻辑。
+    this.zmpPolicy = null;
     this.reset();
   }
 
@@ -159,6 +162,12 @@ export class BalanceController {
     const targetX = safeTarget.x;
     const targetZ = safeTarget.z;
 
+    // RL 策略部署：每帧一次（≈控制器频率），帧内各积分片保持同一 ZMP 指令。
+    let policyZmp = null;
+    if (this.enabled && this.zmpPolicy) {
+      try { policyZmp = this.zmpPolicy(this); } catch { policyZmp = null; }
+    }
+
     // Integrate in small fixed-ish slices to avoid frame-rate-dependent instability.
     const slices = Math.max(1, Math.ceil(dt / 0.008));
     const h = dt / slices;
@@ -171,8 +180,13 @@ export class BalanceController {
         ? c.kp * (targetZ - this.com.z) - c.kd * this.velocity.z : 0;
 
       // Invert LIPM dynamics to request a ZMP, then respect the real foot boundary.
-      requestedX = this.com.x - c.comHeight / c.gravity * desiredAX;
-      requestedZ = this.com.z - c.comHeight / c.gravity * desiredAZ;
+      if (policyZmp) {
+        requestedX = policyZmp.x;
+        requestedZ = policyZmp.z;
+      } else {
+        requestedX = this.com.x - c.comHeight / c.gravity * desiredAX;
+        requestedZ = this.com.z - c.comHeight / c.gravity * desiredAZ;
+      }
       this.zmp = constrainPoint({ x: requestedX, z: requestedZ }, this.support, c.edgeMargin);
 
       const ax = c.gravity / c.comHeight * (this.com.x - this.zmp.x);
