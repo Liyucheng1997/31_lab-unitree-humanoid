@@ -1,7 +1,7 @@
 // 强化学习训练面板：后台 Worker 训练 + 奖励曲线 + 一键部署（PD ↔ RL）。
 // Worker 不可用（如 file:// 打开）时降级为主线程逐迭代训练。
 
-import { PolicyBalancer } from '../rl/PolicyBalancer.js?v=20260828-rpo-v1';
+import { PolicyBalancer } from '../rl/PolicyBalancer.js?v=20261002-eng-v1';
 
 export function initTrainPanel(controller) {
   const balancer = new PolicyBalancer();
@@ -27,7 +27,7 @@ export function initTrainPanel(controller) {
   let worker = null;
   try {
     worker = new Worker(
-      new URL('../rl/trainWorker.js?v=20260828-rpo-v1', import.meta.url),
+      new URL('../rl/trainWorker.js?v=20261002-eng-v1', import.meta.url),
       { type: 'module' });
     worker.onmessage = (event) => handleMessage(event.data);
     worker.onerror = (error) => {
@@ -105,7 +105,7 @@ export function initTrainPanel(controller) {
   // ---- 主线程降级训练：每帧最多一迭代，尽量少卡 ----
   async function fallbackLoop() {
     if (!state.fallbackTrainer) {
-      const { TrainerCore } = await import('../rl/Trainer.js?v=20260828-rpo-v1');
+      const { TrainerCore } = await import('../rl/Trainer.js?v=20261002-eng-v1');
       state.fallbackTrainer = new TrainerCore();
     }
     const step = () => {

@@ -1,6 +1,6 @@
 // HUD：绑定动作按钮、滑块、显示/键盘控制
-import { ClassicalMusic } from '../audio/ClassicalMusic.js?v=20260828-rpo-v1';
-import { downloadURDF } from '../robot/urdfExport.js?v=20260828-rpo-v1';
+import { ClassicalMusic } from '../audio/ClassicalMusic.js?v=20261002-eng-v1';
+import { downloadURDF } from '../robot/urdfExport.js?v=20261002-eng-v1';
 
 const BEHAVIORS = [
   { id: 'idle', label: '站立' },

@@ -3,11 +3,11 @@
 // 该类与执行线程无关：trainWorker.js 在 Web Worker 里跑它（推荐），
 // 也可以在主线程逐迭代调用（降级方案）。
 
-import { PPOAgent, RolloutBuffer } from './ppo.js?v=20260828-rpo-v1';
+import { PPOAgent, RolloutBuffer } from './ppo.js?v=20261002-eng-v1';
 import {
   BalanceEnv, OBS_DIM, ACT_DIM, ENV_CONFIG, buildObs,
-} from './BalanceEnv.js?v=20260828-rpo-v1';
-import { makeRng } from './nn.js?v=20260828-rpo-v1';
+} from './BalanceEnv.js?v=20261002-eng-v1';
+import { makeRng } from './nn.js?v=20261002-eng-v1';
 
 export const TRAIN_CONFIG = {
   numEnvs: 16,

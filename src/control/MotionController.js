@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import { damp, clamp } from './MathUtils.js?v=20260828-rpo-v1';
-import { BalanceController } from './BalanceController.js?v=20260828-rpo-v1';
-import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20260828-rpo-v1';
-import { ActuatorLayer } from '../robot/Actuators.js?v=20260828-rpo-v1';
+import { damp, clamp } from './MathUtils.js?v=20261002-eng-v1';
+import { BalanceController } from './BalanceController.js?v=20261002-eng-v1';
+import { DIM, FORWARD_Z, baseRootHeight } from '../robot/skeleton.js?v=20261002-eng-v1';
+import { ActuatorLayer } from '../robot/Actuators.js?v=20261002-eng-v1';
 import {
   IdleBehavior, WalkBehavior, RunBehavior, DanceBehavior, WaveBehavior,
   JumpBehavior, BackflipBehavior, KungfuBehavior, BaduanjinBehavior,
-} from './behaviors.js?v=20260828-rpo-v1';
+} from './behaviors.js?v=20261002-eng-v1';
 
 // 关节的"静止"姿态（无目标时回归）
 const REST = {
@@ -162,6 +162,8 @@ export class MotionController {
     }
     this.actuators.setTargets(targets);
     this.actuators.step(dt, targets, (name) => this.tauFor(name));
+    // 机构层同步：串联关节级、踝并联连杆、执行器负载指示环
+    this.rig.update?.(dt, this.actuators);
 
     // ---- 面部表情与手指 ----
     if (this.rig.face) {

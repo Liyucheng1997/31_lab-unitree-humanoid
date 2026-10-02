@@ -1,13 +1,14 @@
 import * as THREE from 'three';
-import { createScene } from './scene.js?v=20260828-rpo-v1';
-import { buildRobot } from './robot/RobotBuilder.js?v=20260828-rpo-v1';
-import { MotionController } from './control/MotionController.js?v=20260828-rpo-v1';
-import { initHUD } from './ui/HUD.js?v=20260828-rpo-v1';
-import { initTrainPanel } from './ui/TrainPanel.js?v=20260828-rpo-v1';
-import { BADUANJIN_FORMS } from './control/behaviors.js?v=20260828-rpo-v1';
+import { createScene } from './scene.js?v=20261002-eng-v1';
+import { buildRobot } from './robot/RobotBuilder.js?v=20261002-eng-v1';
+import { MotionController } from './control/MotionController.js?v=20261002-eng-v1';
+import { initHUD } from './ui/HUD.js?v=20261002-eng-v1';
+import { initTrainPanel } from './ui/TrainPanel.js?v=20261002-eng-v1';
+import { initInspector } from './ui/Inspector.js?v=20261002-eng-v1';
+import { BADUANJIN_FORMS } from './control/behaviors.js?v=20261002-eng-v1';
 
 const container = document.getElementById('app');
-const { scene, camera, renderer, controls, composer, updateAmbience } = createScene(container);
+const { scene, camera, renderer, controls, composer, updateAmbience, followShadow, gtao, bloom } = createScene(container);
 
 // ---- 机器人 ----
 const rig = buildRobot();
@@ -92,6 +93,9 @@ const hud = initHUD(controller, view, camera, controls);
 // ---- 强化学习训练面板（后台 Worker 训练 + PD/RL 切换部署）----
 const trainPanel = initTrainPanel(controller);
 
+// ---- 工程视图：X 光 / 爆炸视图 / 执行器悬停检视 ----
+const inspector = initInspector({ rig, controller, camera, canvas: renderer.domElement });
+
 // ---- 状态读数 ----
 const readout = document.getElementById('state-readout');
 
@@ -108,7 +112,9 @@ function animate() {
   hud.pollInput();
   controller.update(dt);
   updateBalanceViz();
+  inspector.update(dt);
   updateAmbience(clock.elapsedTime);
+  followShadow(rig.root.position);
 
   // 骨架显隐
   jointDots.visible = view.showSkeleton;
@@ -150,4 +156,4 @@ function animate() {
 animate();
 
 // 暴露到全局便于调试
-window.__robot = { rig, controller, scene, camera, view, controls, hud, renderer, composer, updateBalanceViz, trainPanel };
+window.__robot = { rig, controller, scene, camera, view, controls, hud, renderer, composer, updateBalanceViz, trainPanel, gtao, bloom };

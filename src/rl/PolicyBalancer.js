@@ -3,8 +3,8 @@
 // 用与训练环境完全一致的观测构造（buildObs）——即 sim2sim 部署。
 // PD ↔ RL 可随时切换对比。
 
-import { buildObs, ENV_CONFIG, OBS_DIM, ACT_DIM } from './BalanceEnv.js?v=20260828-rpo-v1';
-import { PPOAgent } from './ppo.js?v=20260828-rpo-v1';
+import { buildObs, ENV_CONFIG, OBS_DIM, ACT_DIM } from './BalanceEnv.js?v=20261002-eng-v1';
+import { PPOAgent } from './ppo.js?v=20261002-eng-v1';
 
 export class PolicyBalancer {
   constructor() {

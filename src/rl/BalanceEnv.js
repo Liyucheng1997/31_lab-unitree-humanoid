@@ -7,7 +7,7 @@
 //   - 域随机化：重心高度、支撑域尺寸、观测噪声、动作延迟、随机推撞——
 //     训练出的策略对模型误差鲁棒，才谈得上"落地"。
 
-import { makeRng, gaussian } from './nn.js?v=20260828-rpo-v1';
+import { makeRng, gaussian } from './nn.js?v=20261002-eng-v1';
 
 export const ENV_CONFIG = {
   dt: 0.02,                 // 50 Hz 控制频率（Isaac Lab locomotion 同款）

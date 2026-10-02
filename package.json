@@ -1,0 +1,14 @@
+{
+  "name": "web-humanoid",
+  "version": "2.4.0",
+  "private": true,
+  "description": "Three.js 工程级人形机器人：程序化 CAD 建模 + 执行器伺服 + 平衡控制 + 强化学习",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes http-server -p 5179 -c-1 .",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "three": "0.160.0"
+  }
+}

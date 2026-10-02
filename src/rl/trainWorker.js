@@ -5,7 +5,7 @@
 //            {type:'policy', data}  每迭代同步一次最新权重（供实时部署）
 //            {type:'weights', data} 响应 export
 
-import { TrainerCore } from './Trainer.js?v=20260828-rpo-v1';
+import { TrainerCore } from './Trainer.js?v=20261002-eng-v1';
 
 let trainer = new TrainerCore();
 let running = false;

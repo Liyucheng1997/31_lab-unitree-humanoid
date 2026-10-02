@@ -10,8 +10,8 @@
 // 未在关节表中的欧拉分量（如踝 yaw 的脚尖朝向补偿）退化为原来的指数平滑，
 // 保持编舞兼容。
 
-import { jointSpecs } from './description.js?v=20260828-rpo-v1';
-import { clamp, damp } from '../control/MathUtils.js?v=20260828-rpo-v1';
+import { jointSpecs } from './description.js?v=20261002-eng-v1';
+import { clamp, damp } from '../control/MathUtils.js?v=20261002-eng-v1';
 
 const CONTROL_DT = 0.002;       // 500 Hz 伺服周期
 const MAX_SUBSTEPS = 50;        // 单帧最多积分 0.1s，防止后台标签页回来时爆算

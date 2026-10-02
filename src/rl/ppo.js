@@ -4,7 +4,7 @@
 // 策略：对角高斯。actor 网络输出均值 μ，logStd 为独立可学参数。
 // 环境自行把动作裁剪到 [-1,1]（logp 按未裁剪动作计算，标准做法）。
 
-import { MLP, makeRng, gaussian } from './nn.js?v=20260828-rpo-v1';
+import { MLP, makeRng, gaussian } from './nn.js?v=20261002-eng-v1';
 
 export const DEFAULT_HP = {
   gamma: 0.99,          // 折扣

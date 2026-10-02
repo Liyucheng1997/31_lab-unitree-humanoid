@@ -9,7 +9,7 @@
 // 关节旋转轴同样换算：绕 three-X -> urdf (0,1,0)，绕 three-Y -> urdf (0,0,1)，
 // 绕 three-Z -> urdf (1,0,0)。
 
-import { jointSpecs, LINK_MASS, URDF_GEOM } from './description.js?v=20260828-rpo-v1';
+import { jointSpecs, LINK_MASS, URDF_GEOM } from './description.js?v=20261002-eng-v1';
 
 const AXIS_URDF = { x: '0 1 0', y: '0 0 1', z: '1 0 0' };
 const f = (n) => Number(n.toFixed(5));

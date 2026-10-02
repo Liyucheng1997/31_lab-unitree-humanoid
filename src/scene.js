@@ -4,6 +4,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 export function createScene(container) {
@@ -22,15 +23,16 @@ export function createScene(container) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.7;
+  // AgX 色调映射：高光滚降比 ACES 柔和，白色注塑外壳不会糊成一片死白，保留曲面明暗。
+  renderer.toneMapping = THREE.AgXToneMapping;
+  renderer.toneMappingExposure = 1.25;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   container.appendChild(renderer.domElement);
 
   // ---- 环境反射：让陶瓷装甲与金属关节获得真实的高光与倒影 ----
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.35;
+  scene.environmentIntensity = 0.55;
 
   // ---- 后期：Bloom 辉光（发光眼睛 / 状态灯 / 地台光环）----
   const renderTarget = new THREE.WebGLRenderTarget(
@@ -38,11 +40,21 @@ export function createScene(container) {
     { samples: 4, type: THREE.HalfFloatType });
   const composer = new EffectComposer(renderer, renderTarget);
   composer.addPass(new RenderPass(scene, camera));
+  // GTAO 环境光遮蔽：关节模组、支架、壳体缝隙之间的接触阴影，是机械细节"立起来"的关键。
+  const gtao = new GTAOPass(scene, camera, window.innerWidth, window.innerHeight);
+  gtao.output = GTAOPass.OUTPUT.Default;
+  gtao.blendIntensity = 0.85;
+  gtao.updateGtaoMaterial({
+    radius: 0.09, distanceExponent: 1.6, thickness: 0.6, scale: 1.2, samples: 16,
+    distanceFallOff: 1.0, screenSpaceRadius: false,
+  });
+  gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
+  composer.addPass(gtao);
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.7,    // strength
-    0.45,   // radius
-    3.2,    // threshold：装甲高光峰值约 2.5-3，只让 >3.2 的自发光泛光
+    0.62,   // strength
+    0.42,   // radius
+    7.0,    // threshold：金属件镜面高光峰值实测约 10 以内且面积很小；LED 目标亮度 10~16
   );
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
@@ -60,30 +72,33 @@ export function createScene(container) {
   controls.maxPolarAngle = Math.PI * 0.49;
 
   // ---- 灯光 ----
-  const hemi = new THREE.HemisphereLight(0xddeeff, 0x11141a, 0.55);
+  const hemi = new THREE.HemisphereLight(0xdde8ff, 0x161b22, 0.32);
   scene.add(hemi);
 
-  const key = new THREE.DirectionalLight(0xffffff, 1.9);
+  const key = new THREE.DirectionalLight(0xfff6ec, 2.6);
   key.position.set(3.5, 6, 4.5);
   key.castShadow = true;
   key.shadow.mapSize.set(2048, 2048);
   key.shadow.camera.near = 1;
   key.shadow.camera.far = 25;
-  const s = 4;
+  // 阴影相机跟随机器人（见 followShadow），3.2m 见方 → 约 1.6mm/texel，细小零件也有清晰投影
+  const s = 1.6;
   key.shadow.camera.left = -s; key.shadow.camera.right = s;
   key.shadow.camera.top = s; key.shadow.camera.bottom = -s;
-  key.shadow.bias = -0.0004;
-  scene.add(key);
+  key.shadow.bias = -0.0002;
+  key.shadow.normalBias = 0.012;
+  scene.add(key, key.target);
+  const keyOffset = key.position.clone();
 
-  const rim = new THREE.DirectionalLight(0x60d9ff, 1.4);
+  const rim = new THREE.DirectionalLight(0x60d9ff, 1.7);
   rim.position.set(-4.5, 3.5, -3.5);
   scene.add(rim);
 
-  const fill = new THREE.DirectionalLight(0xffe8d6, 0.55);
+  const fill = new THREE.DirectionalLight(0xdfe9ff, 0.45);
   fill.position.set(-3, 2.5, 4);
   scene.add(fill);
 
-  const topLight = new THREE.SpotLight(0xffffff, 7, 12, Math.PI / 5, 0.55, 1.4);
+  const topLight = new THREE.SpotLight(0xffffff, 3.5, 12, Math.PI / 5, 0.55, 1.4);
   topLight.position.set(0, 5.5, 1.2);
   topLight.target.position.set(0, 0.7, 0);
   scene.add(topLight, topLight.target);
@@ -118,7 +133,7 @@ export function createScene(container) {
       new THREE.RingGeometry(inner, outer, 96),
       new THREE.MeshBasicMaterial({
         // 颜色抬到 HDR 区间，让光环参与 Bloom
-        color: new THREE.Color(0x53d8ff).multiplyScalar(3.2),
+        color: new THREE.Color(0x53d8ff).multiplyScalar(5.5),
         transparent: true, opacity,
         side: THREE.DoubleSide, toneMapped: false,
       })
@@ -154,12 +169,21 @@ export function createScene(container) {
     });
   }
 
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    composer.setSize(window.innerWidth, window.innerHeight);
-  });
+  /** 主光阴影跟随机器人，保持高分辨率阴影贴图覆盖在机器人周围。 */
+  function followShadow(pos) {
+    key.target.position.set(pos.x, 0.6, pos.z);
+    key.position.set(pos.x + keyOffset.x, keyOffset.y, pos.z + keyOffset.z);
+  }
 
-  return { scene, camera, renderer, controls, composer, updateAmbience };
+  function resize() {
+    const w = Math.max(1, window.innerWidth);
+    const h = Math.max(1, window.innerHeight);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    composer.setSize(w, h);
+  }
+  window.addEventListener('resize', resize);
+
+  return { scene, camera, renderer, controls, composer, updateAmbience, followShadow, gtao, bloom };
 }
